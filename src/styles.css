@@ -1,0 +1,74 @@
+:root {
+  --bg: #fff8e7;
+  --card: #ffffff;
+  --ink: #3b2f2a;
+  --soft: #7a6a60;
+  --go: #ff8a3d;
+  --go-ink: #ffffff;
+  --line: #f1dcc0;
+  --ok: #3aa55c;
+  --star: #ffc531;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+button:focus-visible, label:focus-within { outline: 4px solid #2f7de1; outline-offset: 3px; }
+
+main { max-width: 900px; margin: 0 auto; min-height: 100dvh; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+
+.big { border: 0; border-radius: 28px; padding: 22px 28px; font-size: clamp(24px, 5vw, 36px); font-weight: 800; }
+.go { background: var(--go); color: var(--go-ink); box-shadow: 0 6px 0 #d96a22; }
+.go:active { transform: translateY(4px); box-shadow: 0 2px 0 #d96a22; }
+.go:disabled { background: #e7d8c8; box-shadow: none; color: #a8968a; cursor: default; }
+.link { background: none; border: 0; color: var(--soft); font-size: 18px; text-decoration: underline; padding: 8px; }
+
+/* 첫 화면, 끝 화면 */
+.start { align-items: center; justify-content: center; text-align: center; }
+.sign { font-size: clamp(48px, 12vw, 88px); letter-spacing: 6px; }
+.start h1 { margin: 0; font-size: clamp(40px, 9vw, 64px); }
+.lead { margin: 0; font-size: clamp(20px, 4.5vw, 28px); line-height: 1.5; color: var(--soft); }
+.teacher { margin-top: 24px; border: 2px dashed var(--line); border-radius: 16px; padding: 12px 16px; display: grid; gap: 8px; width: min(100%, 460px); text-align: left; }
+.teacher legend { color: var(--soft); padding: 0 6px; }
+.teacher label { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; font-size: 18px; }
+.teacher label.on { background: #fff0d6; }
+.teacher small { color: var(--soft); }
+.note { margin: 4px 0 0; font-size: 14px; color: var(--soft); }
+.big-stars { font-size: 56px; color: var(--star); margin: 0; }
+
+/* 놀이 화면 */
+.shop-top { display: flex; justify-content: space-between; align-items: center; }
+.stars { margin: 0; font-size: 32px; color: #e8dccd; letter-spacing: 4px; }
+.stars .on { color: var(--star); }
+
+.customer { display: flex; gap: 16px; align-items: center; }
+.face { font-size: clamp(80px, 18vw, 140px); line-height: 1; flex: none; transition: transform .3s; }
+.face.happy { animation: hop .6s ease 2; }
+@keyframes hop { 50% { transform: translateY(-18px) rotate(-6deg); } }
+.bubble { position: relative; flex: 1; background: var(--card); border: 3px solid var(--line); border-radius: 28px; padding: 16px 20px; }
+.who { margin: 0; color: var(--soft); font-size: 18px; }
+.line { margin: 4px 0 8px; font-size: clamp(26px, 6vw, 42px); font-weight: 800; line-height: 1.35; word-break: keep-all; }
+.again { margin: 0 0 8px; font-size: 18px; color: var(--soft); }
+.listen { border: 0; background: #fff0d6; border-radius: 999px; padding: 8px 16px; font-size: 18px; }
+
+.tray { background: #f6e3c6; border-radius: 28px; padding: 16px; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.tray-empty { margin: 0; color: var(--soft); font-size: 22px; }
+.tray ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; width: 100%; }
+.tray li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tray-count { font-size: 22px; font-weight: 700; min-width: 6.5em; }
+.tray-items { display: flex; flex-wrap: wrap; gap: 4px; }
+.tray-item { border: 0; background: var(--card); border-radius: 16px; font-size: 44px; width: 64px; height: 64px; line-height: 1; }
+
+.shelf { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.fruit { border: 3px solid var(--line); background: var(--card); border-radius: 24px; padding: 12px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 5px 0 var(--line); }
+.fruit:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--line); }
+.fruit-emoji { font-size: clamp(44px, 11vw, 80px); line-height: 1.1; }
+.fruit-name { font-size: clamp(18px, 4vw, 24px); font-weight: 700; }
+
+@media (max-width: 520px) {
+  .shelf { grid-template-columns: repeat(3, 1fr); }
+  .customer { flex-direction: column; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) { .face.happy { animation: none; } }
