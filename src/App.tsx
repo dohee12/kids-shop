@@ -5,7 +5,7 @@ import {
   type Age, type Mode, type Order, type Shop, type Tray, type Verdict,
 } from './game';
 import { loadStore, saveStore, type Store } from './shop';
-import { browserRecognizer, hush, say, type Listening, type Recognizer } from './speech';
+import { browserRecognizer, hush, say, setVoice, type Listening, type Recognizer } from './speech';
 import Teacher from './Teacher';
 
 type Props = { rng?: () => number; recognizer?: Recognizer };
@@ -19,6 +19,7 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   const shop = active.shops.find(s => s.id === active.current) ?? active.shops[0];
   const rounds = shop.rounds;
   const micOn = active.micOn;
+  setVoice(active.voice); // 다음 say() 부터 이 목소리로
   const [mode, setMode] = useState<Mode>('clerk');
   const [age, setAge] = useState<Age>('5');
   // 마이크 안내는 한 번 켜질 때까지 보여 줍니다. 저장하지 않으므로 새로 열면 다시 묻습니다.

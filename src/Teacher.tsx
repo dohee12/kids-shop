@@ -1,10 +1,11 @@
 // 선생님 페이지: 놀이 주제를 고르고, 가게 이름·손님·통로·물건을 고칩니다.
 // 고친 것은 "저장하기"를 눌러야 아이 화면에 나오고, 이 기기 브라우저에만 저장됩니다.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ART_IDS, Animal, Pic } from './Art';
 import { CUSTOMERS, ITEMS, UNITS, shownItems, type Item, type Shop } from './game';
+import { DEFAULT_VOICE, koreanVoices, say, voiceLabel, voiceScore } from './speech';
 import {
-  LIMITS, PASTE_HELP, blocking, checkShop, exportText, fromPaste, importText, newId, toPaste, type Store,
+  LIMITS, PASTE_HELP, PITCH, RATE, blocking, checkShop, exportText, fromPaste, importText, newId, toPaste, type Store,
 } from './shop';
 import { BUILTIN, isBuiltin } from './themes';
 
@@ -37,6 +38,22 @@ async function shrinkPhoto(file: File): Promise<string> {
   }
 }
 
+/** 목소리 목록은 브라우저가 늦게 채워 주므로 바뀔 때마다 다시 읽습니다. */
+function useVoices() {
+  const [list, setList] = useState(koreanVoices);
+  useEffect(() => {
+    const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
+    if (!synth) return;
+    const update = () => setList(koreanVoices());
+    synth.addEventListener?.('voiceschanged', update);
+    update();
+    return () => synth.removeEventListener?.('voiceschanged', update);
+  }, []);
+  return list;
+}
+const speedWord = (r: number) => (r < 0.8 ? '천천히' : r <= 1 ? '조금 천천히' : r <= 1.1 ? '보통' : '빠르게');
+const pitchWord = (p: number) => (p < 0.9 ? '낮게' : p <= 1.1 ? '보통' : '높게');
+
 /** 저장 직전 다듬기: 다르게 부르는 말의 빈칸·앞뒤 공백 */
 const tidy = (shops: Shop[]): Shop[] => shops.map(s => ({
   ...s,
@@ -48,13 +65,17 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
   const [shops, setShops] = useState<Shop[]>(() => copy((start ?? store).shops));
   const [current, setCurrent] = useState((start ?? store).current);
   const [micOn, setMicOn] = useState((start ?? store).micOn);
+  const [voice, setVoiceDraft] = useState((start ?? store).voice);
+  const voices = useVoices();
+  const best = voices[0];
+  const onlyRobot = voices.length > 0 && voiceScore(best) === 0;
   const [note, setNote] = useState('');
   const [picFor, setPicFor] = useState<string | null>(null);
   const [paste, setPaste] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const shop = shops.find(s => s.id === current) ?? shops[0];
-  const draft = (): Store => ({ current: shop.id, micOn, shops: tidy(shops) });
+  const draft = (): Store => ({ current: shop.id, micOn, voice, shops: tidy(shops) });
   const dirty = JSON.stringify(draft()) !== JSON.stringify(store);
   const problems = shops.flatMap(s => checkShop(s).map(p => (s.id === shop.id ? p : `「${s.name}」 ${p}`)));
   const stop = blocking(problems);
@@ -180,6 +201,27 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
           <input type="checkbox" checked={micOn} onChange={e => { setMicOn(e.target.checked); setNote(''); }} />
           손님 놀이에서 마이크 쓰기
         </label>
+        <div className="t-voice">
+          <label className="t-field grow">목소리
+            <select value={voice.name} onChange={e => setVoiceDraft({ ...voice, name: e.target.value })}>
+              <option value="">자동{best ? ` (${voiceLabel(best)})` : ''}</option>
+              {voices.map(v => <option key={v.name} value={v.name}>{voiceLabel(v)}</option>)}
+            </select>
+          </label>
+          <label className="t-field"><span>빠르기 <span className="t-val">{speedWord(voice.rate)}</span></span>
+            <input type="range" min={RATE.min} max={RATE.max} step={0.05} value={voice.rate}
+              onChange={e => setVoiceDraft({ ...voice, rate: Number(e.target.value) })} />
+          </label>
+          <label className="t-field"><span>높낮이 <span className="t-val">{pitchWord(voice.pitch)}</span></span>
+            <input type="range" min={PITCH.min} max={PITCH.max} step={0.05} value={voice.pitch}
+              onChange={e => setVoiceDraft({ ...voice, pitch: Number(e.target.value) })} />
+          </label>
+          <button type="button" className="t-btn" onClick={() => say('어서 오세요! 사과 두 개랑 우유 한 개 주세요.', voice)}>🔊 들어 보기</button>
+          <button type="button" className="t-link" onClick={() => setVoiceDraft({ ...DEFAULT_VOICE })}>처음 값으로</button>
+        </div>
+        {voices.length === 0 && <p className="t-help">이 브라우저에서 한국어 목소리를 찾지 못했어요. Microsoft Edge나 Chrome으로 열어 주세요.</p>}
+        {onlyRobot && <p className="t-help"><b>더 자연스러운 목소리</b>는 Microsoft Edge(자연스러운 목소리)나 Chrome(Google 목소리)에 들어 있어요. 이 브라우저에는 기계음 목소리만 있어요.</p>}
+        <p className="t-help">자연스러운 목소리와 Google 목소리는 인터넷으로 읽어 줘요. 이때 앱이 만든 문장(예: "사과 두 개 주세요")만 보내지고 아이 정보는 보내지 않아요.</p>
         <p className="t-help">마이크를 켜면 말소리를 글자로 바꾸려고 브라우저 회사 서버(Google·Microsoft)로 소리가 보내져요. 이 앱은 소리와 글자를 저장하지 않아요. 끄면 아이가 말하고 선생님이 듣고 "선생님: 잘 말했어요"를 눌러 진행해요. 카메라는 쓰지 않아요.</p>
       </section>
 

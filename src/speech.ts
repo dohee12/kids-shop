@@ -3,15 +3,42 @@
 // - 알아듣기: 브라우저 음성 인식(SpeechRecognition). 손님 놀이에서 선생님이 마이크를 켰을 때만 씁니다.
 //   Chrome·Edge 는 보통 말소리를 글자로 바꾸려고 회사 서버(Google·Microsoft)로 보냅니다. 이 앱은 소리도 글자도 저장하지 않습니다.
 
-export function say(text: string): void {
-  const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
+/** 선생님이 고른 목소리. name 이 비어 있으면 가장 자연스러운 한국어 목소리를 고릅니다. */
+export type VoicePrefs = { name: string; rate: number; pitch: number };
+export const DEFAULT_VOICE: VoicePrefs = { name: '', rate: 0.9, pitch: 1 };
+let prefs: VoicePrefs = DEFAULT_VOICE;
+export const setVoice = (p: VoicePrefs) => { prefs = p; };
+
+const synthOf = () => (typeof window !== 'undefined' ? window.speechSynthesis : undefined);
+
+/** 자연스러운 정도: Edge 의 Natural(신경망) 목소리 > Google > 온라인 > 기기 기본(Heami 처럼 기계음) */
+export const voiceScore = (v: Pick<SpeechSynthesisVoice, 'name' | 'localService'>) =>
+  (/natural/i.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 3 : 0) + (v.localService ? 0 : 1);
+
+/** 한국어 목소리, 자연스러운 것부터 */
+export function koreanVoices(): SpeechSynthesisVoice[] {
+  const synth = synthOf();
+  if (!synth) return [];
+  return synth.getVoices().filter(v => /^ko/i.test(v.lang)).sort((a, b) => voiceScore(b) - voiceScore(a));
+}
+
+/** 목록에 보여 줄 이름: "Microsoft SunHi Online (Natural) - Korean (Korea)" → "SunHi · 자연스러운 목소리 (인터넷 필요)" */
+export function voiceLabel(v: Pick<SpeechSynthesisVoice, 'name' | 'localService'>): string {
+  const base = v.name.replace(/^Microsoft\s+/i, '').replace(/\s*-\s*Korean.*$/i, '').replace(/\s*Online/i, '').replace(/\s*\(Natural\)/i, '').trim();
+  const tag = /natural/i.test(v.name) ? '자연스러운 목소리' : /google/i.test(v.name) ? 'Google 목소리' : v.localService ? '기기 기본 목소리' : '온라인 목소리';
+  return `${base} · ${tag}${v.localService ? '' : ' (인터넷 필요)'}`;
+}
+
+export function say(text: string, p: VoicePrefs = prefs): void {
+  const synth = synthOf();
   if (!synth || typeof SpeechSynthesisUtterance === 'undefined') return;
   synth.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ko-KR';
-  u.rate = 0.85;
-  u.pitch = 1.15;
-  const voice = synth.getVoices().find(v => v.lang.startsWith('ko'));
+  u.rate = p.rate;
+  u.pitch = p.pitch;
+  const voices = koreanVoices();
+  const voice = voices.find(v => v.name === p.name) ?? voices[0];
   if (voice) u.voice = voice;
   synth.speak(u);
 }

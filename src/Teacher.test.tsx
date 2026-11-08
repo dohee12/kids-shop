@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -136,6 +136,14 @@ describe('선생님 페이지', () => {
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
     expect(screen.getByLabelText('손님 3명 중 1번째')).toBeInTheDocument();
     expect(screen.getByText('펭귄 손님')).toBeInTheDocument();
+  });
+
+  it('목소리 빠르기를 바꿔 저장합니다', async () => {
+    const { user } = await openTeacher();
+    fireEvent.change(screen.getByLabelText(/빠르기/), { target: { value: '0.7' } });
+    expect(screen.getByText('천천히')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '저장하기' }));
+    expect(JSON.parse(localStorage.getItem(STORE_KEY)!).voice).toMatchObject({ rate: 0.7, pitch: 1 });
   });
 
   it('첫 화면에는 선생님 설정 버튼만 있고, 마이크 끄기는 선생님 페이지에서 저장합니다', async () => {

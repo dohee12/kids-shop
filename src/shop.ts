@@ -2,16 +2,32 @@
 // 서버로 보내지 않고, 아이 이름이나 기록은 다루지 않습니다.
 import { isArt, isPhoto } from './Art';
 import { CUSTOMERS, DEFAULT_GREETING, UNITS, shownItems, type Aisle, type Item, type Shop } from './game';
+import { DEFAULT_VOICE, type VoicePrefs } from './speech';
 import { BUILTIN, PIC_BY_NAME } from './themes';
 
 export const STORE_KEY = 'kids-shop:v1';
 export const LIMITS = { items: 40, aisles: 3, name: 20, greeting: 80, aliases: 8, photo: 200_000 } as const;
 
-/** micOn: 손님 놀이에서 마이크 쓰기 (선생님 설정) */
-export type Store = { current: string; micOn: boolean; shops: Shop[] };
+/** micOn: 손님 놀이에서 마이크 쓰기, voice: 목소리·빠르기·높낮이 (선생님 설정) */
+export type Store = { current: string; micOn: boolean; voice: VoicePrefs; shops: Shop[] };
 
 const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
-export const defaultStore = (): Store => ({ current: 'super', micOn: true, shops: copy(BUILTIN) });
+export const defaultStore = (): Store => ({ current: 'super', micOn: true, voice: { ...DEFAULT_VOICE }, shops: copy(BUILTIN) });
+
+export const RATE = { min: 0.6, max: 1.3 } as const;
+export const PITCH = { min: 0.7, max: 1.4 } as const;
+const clamp = (v: unknown, lo: number, hi: number, d: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;
+};
+export function cleanVoice(raw: unknown): VoicePrefs {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    name: typeof r.name === 'string' ? r.name.slice(0, 120) : '',
+    rate: clamp(r.rate, RATE.min, RATE.max, DEFAULT_VOICE.rate),
+    pitch: clamp(r.pitch, PITCH.min, PITCH.max, DEFAULT_VOICE.pitch),
+  };
+}
 
 function storage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -22,12 +38,12 @@ export function loadStore(): Store {
   try {
     const raw = storage()?.getItem(STORE_KEY);
     if (!raw) return defaultStore();
-    const data = JSON.parse(raw) as { current?: unknown; micOn?: unknown; shops?: unknown };
+    const data = JSON.parse(raw) as { current?: unknown; micOn?: unknown; voice?: unknown; shops?: unknown };
     const shops = (Array.isArray(data.shops) ? data.shops : []).map(sanitizeShop).filter((s): s is Shop => s !== null);
     // 나중에 기본 주제가 늘어나면 뒤에 붙여 줍니다.
     for (const b of BUILTIN) if (!shops.some(s => s.id === b.id)) shops.push(copy(b));
     const current = shops.some(s => s.id === data.current) ? (data.current as string) : shops[0].id;
-    return { current, micOn: data.micOn !== false, shops };
+    return { current, micOn: data.micOn !== false, voice: cleanVoice(data.voice), shops };
   } catch {
     return defaultStore();
   }
