@@ -1,22 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animal, ItemArt } from './Art';
+import { Animal, Pic } from './Art';
 import {
-  AGES, AISLES, ITEMS, aislesFor, countWord, judge, judgeSpoken, makeOrder, orderText,
-  type Age, type Mode, type Order, type Tray, type Verdict,
+  AGES, aislesFor, countWord, judge, judgeSpoken, makeOrder, orderList, orderText, shownItems, unitOf,
+  type Age, type Mode, type Order, type Shop, type Tray, type Verdict,
 } from './game';
+import { loadStore, saveStore, type Store } from './shop';
 import { browserRecognizer, hush, say, type Listening, type Recognizer } from './speech';
-
-const ROUNDS = 5;
+import Teacher from './Teacher';
 
 type Props = { rng?: () => number; recognizer?: Recognizer };
+type Screen = 'start' | 'play' | 'done' | 'gate' | 'teacher';
 
 export default function App({ rng = Math.random, recognizer = browserRecognizer }: Props) {
+  const [store, setStore] = useState<Store>(loadStore);
+  // 선생님 페이지의 "아이 화면 미리보기": 저장하지 않은 내용으로 잠깐 놀아 봅니다.
+  const [preview, setPreview] = useState<Store | null>(null);
+  const active = preview ?? store;
+  const shop = active.shops.find(s => s.id === active.current) ?? active.shops[0];
+  const rounds = shop.rounds;
   const [mode, setMode] = useState<Mode>('clerk');
   const [age, setAge] = useState<Age>('5');
   const [micOn, setMicOn] = useState(true);
   // 마이크 안내는 한 번 켜질 때까지 보여 줍니다. 저장하지 않으므로 새로 열면 다시 묻습니다.
   const [micAgreed, setMicAgreed] = useState(false);
-  const [screen, setScreen] = useState<'start' | 'play' | 'done'>('start');
+  const [screen, setScreen] = useState<Screen>('start');
   const [round, setRound] = useState(1);
   const [order, setOrder] = useState<Order | null>(null);
 
@@ -25,34 +32,83 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   const start = (m: Mode = mode) => {
     setMode(m);
     setRound(1);
-    setOrder(makeOrder(m, age, rng));
+    setOrder(makeOrder(m, age, rng, undefined, shop));
     setScreen('play');
   };
   const next = () => {
-    if (round >= ROUNDS) { hush(); setScreen('done'); return; }
+    if (round >= rounds) { hush(); setScreen('done'); return; }
     setRound(round + 1);
-    setOrder(makeOrder(mode, age, rng, order ?? undefined));
+    setOrder(makeOrder(mode, age, rng, order ?? undefined, shop));
   };
   const home = () => { hush(); setScreen('start'); };
+  const leaveTeacher = () => { setPreview(null); setScreen('start'); };
+  const saveShops = (s: Store) => {
+    if (!saveStore(s)) return false;
+    setStore(s);
+    setPreview(null);
+    return true;
+  };
 
-  if (screen === 'done') return <Done mode={mode} onAgain={() => start()} onHome={home} />;
+  if (screen === 'gate') return <Gate rng={rng} onPass={() => setScreen('teacher')} onCancel={() => setScreen('start')} />;
+  if (screen === 'teacher') {
+    return <Teacher store={store} draft={preview} onSave={saveShops} onClose={leaveTeacher}
+      onPreview={d => { setPreview(d); setScreen('start'); }} />;
+  }
+  if (screen === 'done') return <Done mode={mode} rounds={rounds} customers={shop.customers} onAgain={() => start()} onHome={home} />;
   if (screen === 'play' && order) {
-    const top = <Top round={round} onHome={home} />;
+    const top = <Top title={shop.name} round={round} rounds={rounds} onHome={home} />;
     return mode === 'clerk'
-      ? <ClerkPlay key={round} top={top} order={order} age={age} last={round >= ROUNDS} onNext={next} />
-      : <CustomerPlay key={round} top={top} order={order} age={age} last={round >= ROUNDS} onNext={next}
+      ? <ClerkPlay key={round} top={top} shop={shop} order={order} age={age} last={round >= rounds} onNext={next} />
+      : <CustomerPlay key={round} top={top} shop={shop} order={order} age={age} last={round >= rounds} onNext={next}
           recognizer={recognizer} micOn={micOn} micAgreed={micAgreed} onAgree={() => setMicAgreed(true)} />;
   }
-  return <Start mode={mode} setMode={setMode} age={age} setAge={setAge} micOn={micOn} setMicOn={setMicOn} onStart={() => start()} />;
+  return (
+    <>
+      {preview && (
+        <div className="preview-bar sans" role="status">
+          미리보기 중이에요. 아직 저장하지 않았어요.
+          <button type="button" className="t-btn primary" onClick={() => setScreen('teacher')}>선생님 페이지로 돌아가기</button>
+        </div>
+      )}
+      <Start shop={shop} mode={mode} setMode={setMode} age={age} setAge={setAge} micOn={micOn} setMicOn={setMicOn}
+        onStart={() => start()} onTeacher={() => setScreen(preview ? 'teacher' : 'gate')} />
+    </>
+  );
 }
 
-function Top({ round, onHome }: { round: number; onHome: () => void }) {
+/** 아이가 실수로 선생님 페이지에 들어가지 않게 간단한 덧셈을 묻습니다. */
+function Gate({ rng, onPass, onCancel }: { rng: () => number; onPass: () => void; onCancel: () => void }) {
+  const [[a, b]] = useState(() => [6 + Math.floor(rng() * 4), 5 + Math.floor(rng() * 5)]);
+  const [value, setValue] = useState('');
+  const [wrong, setWrong] = useState(false);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (Number(value) === a + b) onPass();
+    else { setWrong(true); setValue(''); }
+  };
+  return (
+    <main className="start gate sans">
+      <h1>선생님 확인</h1>
+      <form onSubmit={submit} className="gate-form">
+        <label htmlFor="gate-q">{a} 더하기 {b}는 얼마인가요?</label>
+        <input id="gate-q" inputMode="numeric" autoComplete="off" value={value} onChange={e => { setValue(e.target.value); setWrong(false); }} autoFocus />
+        {wrong && <p className="t-problems" role="alert">다시 계산해 볼까요?</p>}
+        <div className="t-row center">
+          <button type="button" className="t-btn" onClick={onCancel}>돌아가기</button>
+          <button type="submit" className="t-btn primary">들어가기</button>
+        </div>
+      </form>
+    </main>
+  );
+}
+
+function Top({ title, round, rounds, onHome }: { title: string; round: number; rounds: number; onHome: () => void }) {
   return (
     <header className="top">
       <button type="button" className="link" onClick={onHome}>‹ 처음으로</button>
-      <p className="top-title">꼬마 슈퍼마켓</p>
-      <p className="stars" aria-label={`손님 ${ROUNDS}명 중 ${round}번째`}>
-        {Array.from({ length: ROUNDS }, (_, i) => <span key={i} className={i < round - 1 ? 'on' : i === round - 1 ? 'now' : ''}>★</span>)}
+      <p className="top-title">{title}</p>
+      <p className="stars" aria-label={`손님 ${rounds}명 중 ${round}번째`}>
+        {Array.from({ length: rounds }, (_, i) => <span key={i} className={i < round - 1 ? 'on' : i === round - 1 ? 'now' : ''}>★</span>)}
       </p>
     </header>
   );
@@ -71,8 +127,9 @@ function Bubble({ who, line, sub, onListen }: { who: string; line: string; sub?:
 
 // ── 점원 놀이: 손님 말을 듣고 물건을 골라 건네기 ──
 
-function ClerkPlay({ top, order, age, last, onNext }: { top: React.ReactNode; order: Order; age: Age; last: boolean; onNext: () => void }) {
-  const aisles = aislesFor('clerk', age);
+function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNode; shop: Shop; order: Order; age: Age; last: boolean; onNext: () => void }) {
+  const aisles = aislesFor('clerk', age, shop);
+  const items = shownItems(shop);
   const [aisle, setAisle] = useState(aisles[0]);
   const [tray, setTray] = useState<Tray>({});
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -89,8 +146,8 @@ function ClerkPlay({ top, order, age, last, onNext }: { top: React.ReactNode; or
     if (t[id] <= 0) delete t[id];
     setTray(t); setVerdict(null);
   };
-  const give = () => { const v = judge(order, tray); setVerdict(v); say(v.say); };
-  const shown = ITEMS.filter(i => i.aisle === aisle);
+  const give = () => { const v = judge(order, tray, items); setVerdict(v); say(v.say); };
+  const shown = items.filter(i => i.aisle === aisle);
   const shelves = [...new Set(shown.map(i => i.shelf))];
 
   return (
@@ -100,7 +157,7 @@ function ClerkPlay({ top, order, age, last, onNext }: { top: React.ReactNode; or
         <section className="shelf-area" aria-label="진열대">
           {aisles.length > 1 && (
             <div className="tabs">
-              {AISLES.filter(a => aisles.includes(a.id)).map(a => (
+              {shop.aisles.filter(a => aisles.includes(a.id)).map(a => (
                 <button type="button" key={a.id} className="tab" aria-pressed={aisle === a.id} onClick={() => setAisle(a.id)}>{a.label}</button>
               ))}
             </div>
@@ -112,7 +169,7 @@ function ClerkPlay({ top, order, age, last, onNext }: { top: React.ReactNode; or
                 <div className="shelf-items">
                   {shown.filter(i => i.shelf === s).map(i => (
                     <button type="button" key={i.id} className="item" aria-label={`${i.name} 담기`} onClick={() => put(i.id)} disabled={solved}>
-                      <ItemArt id={i.id} size={68} />
+                      <Pic pic={i.pic} size={68} />
                       <span>{i.name}</span>
                     </button>
                   ))}
@@ -133,12 +190,12 @@ function ClerkPlay({ top, order, age, last, onNext }: { top: React.ReactNode; or
             <p className="basket-title">🧺 장바구니</p>
             {total === 0 ? <p className="basket-empty">진열대에서 물건을 눌러 담아요</p> : (
               <ul>
-                {ITEMS.filter(i => tray[i.id]).map(i => (
+                {items.filter(i => tray[i.id]).map(i => (
                   <li key={i.id}>
-                    <ItemArt id={i.id} size={36} />
+                    <Pic pic={i.pic} size={36} />
                     <span className="b-name">{i.name}</span>
                     {age !== '7' && <span className="dots" aria-hidden="true">{Array.from({ length: tray[i.id] }, (_, k) => <i key={k} />)}</span>}
-                    <span className="b-count">{countWord(tray[i.id])} 개</span>
+                    <span className="b-count">{countWord(tray[i.id])} {unitOf(i)}</span>
                     <button type="button" className="minus" aria-label={`${i.name} 하나 빼기`} onClick={() => takeOut(i.id)} disabled={solved}>−</button>
                   </li>
                 ))}
@@ -158,11 +215,12 @@ function ClerkPlay({ top, order, age, last, onNext }: { top: React.ReactNode; or
 
 type Hearing = 'idle' | 'notice' | 'listening';
 
-function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgreed, onAgree }: {
-  top: React.ReactNode; order: Order; age: Age; last: boolean; onNext: () => void;
+function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, micAgreed, onAgree }: {
+  top: React.ReactNode; shop: Shop; order: Order; age: Age; last: boolean; onNext: () => void;
   recognizer: Recognizer; micOn: boolean; micAgreed: boolean; onAgree: () => void;
 }) {
-  const ask = '어서 오세요! 무엇을 드릴까요? 그림을 보고 말해 보세요.';
+  const ask = shop.greeting;
+  const items = shownItems(shop);
   const model = orderText(order);
   const [line, setLine] = useState(ask);
   const [heard, setHeard] = useState('');
@@ -187,7 +245,7 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
       onInterim: t => setHeard(t),
       onFinal: alts => {
         if (!alts.length) { answer({ ok: false, kind: 'unheard', say: '잘 못 들었어요. 마이크 가까이에서 한 번 더 말해 볼까요?' }); return; }
-        const verdicts = alts.map(a => ({ a, v: judgeSpoken(order, a, age) }));
+        const verdicts = alts.map(a => ({ a, v: judgeSpoken(order, a, age, items) }));
         const best = verdicts.find(x => x.v.ok) ?? verdicts[0];
         setHeard(best.a);
         answer(best.v);
@@ -205,7 +263,7 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
     else answer({ ok: false, kind: 'start-failed', say: '마이크를 켜지 못했어요. 다시 눌러 볼까요?' }, false);
   };
   const stop = () => listening.current?.stop();
-  const teacherOk = () => answer({ ok: true, kind: 'teacher', say: `네! ${order.lines.map(l => `${l.item.name} ${countWord(l.count)} 개`).join(', ')} 드릴게요.` });
+  const teacherOk = () => answer({ ok: true, kind: 'teacher', say: `네! ${orderList(order)} 드릴게요.` });
 
   return (
     <main className="play">
@@ -217,9 +275,9 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
             {order.lines.map(l => (
               <div key={l.item.id} className="want-line">
                 <div className="want-items">
-                  {Array.from({ length: l.count }, (_, k) => <ItemArt key={k} id={l.item.id} size={l.count > 3 ? 72 : 96} />)}
+                  {Array.from({ length: l.count }, (_, k) => <Pic key={k} pic={l.item.pic} size={l.count > 3 ? 72 : 96} />)}
                 </div>
-                <p className="want-name">{l.item.name}{age !== '3' && <> · <b>{countWord(l.count)} 개</b></>}</p>
+                <p className="want-name">{l.item.name}{age !== '3' && <> · <b>{countWord(l.count)} {unitOf(l.item)}</b></>}</p>
               </div>
             ))}
           </div>
@@ -266,17 +324,19 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
 
 // ── 첫 화면, 끝 화면 ──
 
-function Start({ mode, setMode, age, setAge, micOn, setMicOn, onStart }: {
-  mode: Mode; setMode: (m: Mode) => void; age: Age; setAge: (a: Age) => void; micOn: boolean; setMicOn: (v: boolean) => void; onStart: () => void;
+function Start({ shop, mode, setMode, age, setAge, micOn, setMicOn, onStart, onTeacher }: {
+  shop: Shop; mode: Mode; setMode: (m: Mode) => void; age: Age; setAge: (a: Age) => void; micOn: boolean; setMicOn: (v: boolean) => void;
+  onStart: () => void; onTeacher: () => void;
 }) {
+  const art = shownItems(shop).slice(0, 2);
   return (
     <main className="start">
       <div className="awning" aria-hidden="true" />
-      <h1>꼬마 슈퍼마켓</h1>
+      <h1>{shop.name}</h1>
       <p className="lead">오늘은 무엇을 해 볼까요?</p>
       <div className="modes">
         <button type="button" className="mode" aria-pressed={mode === 'clerk'} onClick={() => setMode('clerk')}>
-          <span className="mode-art" aria-hidden="true"><ItemArt id="apple" size={56} /><ItemArt id="milk" size={56} /></span>
+          <span className="mode-art" aria-hidden="true">{art.map(i => <Pic key={i.id} pic={i.pic} size={56} />)}</span>
           <b>내가 점원이에요</b>
           <small>손님 말을 듣고 물건을 골라요</small>
         </button>
@@ -297,22 +357,23 @@ function Start({ mode, setMode, age, setAge, micOn, setMicOn, onStart }: {
       <fieldset className="teacher">
         <legend>선생님 설정</legend>
         <label><input type="checkbox" checked={micOn} onChange={e => setMicOn(e.target.checked)} /> 손님 놀이에서 마이크 쓰기</label>
-        <p className="note">손님 {ROUNDS}명이면 한 판 3~5분. 카메라는 쓰지 않고, 아무것도 저장하지 않아요. 마이크를 켜면 말소리가 글자로 바뀌기 위해 브라우저 회사 서버로 보내져요.</p>
+        <p className="note">손님 {shop.rounds}명이 오면 한 판이 끝나요. 카메라는 쓰지 않고, 아이 정보는 저장하지 않아요. 마이크를 켜면 말소리를 글자로 바꾸려고 브라우저 회사 서버로 보내요.</p>
+        <button type="button" className="t-btn" onClick={onTeacher}>선생님 페이지 · 주제와 물건 바꾸기</button>
       </fieldset>
     </main>
   );
 }
 
-function Done({ mode, onAgain, onHome }: { mode: Mode; onAgain: () => void; onHome: () => void }) {
-  const text = mode === 'clerk' ? `오늘 손님 ${countWord(ROUNDS)} 명을 도와줬어요.` : `오늘 물건을 ${countWord(ROUNDS)} 번 주문했어요.`;
+function Done({ mode, rounds, customers, onAgain, onHome }: { mode: Mode; rounds: number; customers: string[]; onAgain: () => void; onHome: () => void }) {
+  const text = mode === 'clerk' ? `오늘 손님 ${countWord(rounds)} 명을 도와줬어요.` : `오늘 물건을 ${countWord(rounds)} 번 주문했어요.`;
   useEffect(() => { say(`${text} 정말 잘했어요!`); }, [text]);
   return (
     <main className="start done">
-      <p className="big-stars" aria-hidden="true">★★★★★</p>
+      <p className="big-stars" aria-hidden="true">{'★'.repeat(Math.min(rounds, 5))}</p>
       <h1>참 잘했어요!</h1>
       <p className="lead">{text}</p>
       <div className="done-animals" aria-hidden="true">
-        {['rabbit', 'bear', 'cat', 'dog', 'penguin'].map(id => <Animal key={id} id={id} size={72} happy />)}
+        {customers.map(id => <Animal key={id} id={id} size={72} happy />)}
       </div>
       <button type="button" className="big go" onClick={onAgain}>한 번 더 하기</button>
       <button type="button" className="link" onClick={onHome}>처음으로</button>

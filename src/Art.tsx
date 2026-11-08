@@ -23,6 +23,18 @@ export function ItemArt({ id, size = 72 }: { id: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">{ITEM_ART[id]}</svg>;
 }
 
+/** 직접 그린 그림 이름들 (선생님 페이지에서 고를 수 있는 것) */
+export const ART_IDS = Object.keys(ITEM_ART);
+export const isArt = (pic: string) => Object.prototype.hasOwnProperty.call(ITEM_ART, pic);
+export const isPhoto = (pic: string) => /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(pic);
+
+/** 물건 그림: 직접 그린 그림 → 사진 → 이모지·글자 순서로 봅니다. */
+export function Pic({ pic, size = 72 }: { pic?: string; size?: number }) {
+  if (pic && isArt(pic)) return <ItemArt id={pic} size={size} />;
+  if (pic && isPhoto(pic)) return <img className="pic-photo" src={pic} width={size} height={size} alt="" />;
+  return <span className="pic-emoji" style={{ width: size, height: size, fontSize: Math.round(size * 0.74) }} aria-hidden="true">{pic || '📦'}</span>;
+}
+
 const FUR: Record<string, { fur: string; line: string; inner: string }> = {
   rabbit: { fur: '#F5F0FA', line: '#D9CFE6', inner: '#F7B6C8' },
   bear: { fur: '#C68B55', line: '#9C6A3D', inner: '#F1D3AE' },
