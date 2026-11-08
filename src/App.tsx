@@ -5,10 +5,12 @@ import {
   type Age, type Mode, type Order, type Shop, type Tray, type Verdict,
 } from './game';
 import { loadStore, saveStore, type Store } from './shop';
-import { browserRecognizer, hush, say, setVoice, type Listening, type Recognizer } from './speech';
+import { browserRecognizer, hush, say, sayIfQuiet, setVoice, type Listening, type Recognizer } from './speech';
 import Teacher from './Teacher';
 
 type Props = { rng?: () => number; recognizer?: Recognizer };
+/** 나이 버튼을 누르면 읽어 줄 말 ("3~4세"를 기계가 이상하게 읽지 않게) */
+const AGE_SAY: Record<Age, string> = { '3': '세 살, 네 살', '5': '다섯 살, 여섯 살', '7': '일곱 살' };
 type Screen = 'start' | 'play' | 'done' | 'gate' | 'teacher';
 
 export default function App({ rng = Math.random, recognizer = browserRecognizer }: Props) {
@@ -134,6 +136,9 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   const [aisle, setAisle] = useState(aisles[0]);
   const [tray, setTray] = useState<Tray>({});
   const [verdict, setVerdict] = useState<Verdict | null>(null);
+  // 잘 안 될 때 주문을 그림으로도 보여 줍니다 (3~4세는 한 번, 그 위는 두 번 막히면).
+  const [misses, setMisses] = useState(0);
+  const showPics = !verdict?.ok && misses >= (age === '3' ? 1 : 2);
   const line = orderText(order);
   // 손님은 인사하고 주문합니다. 들리는 말과 말풍선 글자를 똑같이 맞춥니다.
   const hello = `안녕하세요! ${line}`;
@@ -142,14 +147,26 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
 
   useEffect(() => { say(hello); }, [hello]);
 
-  const put = (id: string) => { if (!solved) { setTray({ ...tray, [id]: (tray[id] ?? 0) + 1 }); setVerdict(null); } };
+  const put = (id: string) => {
+    if (solved) return;
+    setTray({ ...tray, [id]: (tray[id] ?? 0) + 1 }); setVerdict(null);
+    // 누른 물건 이름을 들려줘 낱말과 그림을 잇습니다. 손님이 말하는 중이면 끊지 않습니다.
+    const it = items.find(i => i.id === id);
+    if (it) sayIfQuiet(it.name);
+  };
   const takeOut = (id: string) => {
     if (solved) return;
     const t = { ...tray, [id]: (tray[id] ?? 0) - 1 };
     if (t[id] <= 0) delete t[id];
     setTray(t); setVerdict(null);
   };
-  const give = () => { const v = judge(order, tray, items); setVerdict(v); say(v.say); };
+  const give = () => {
+    const v = judge(order, tray, items);
+    const m = v.ok ? misses : misses + 1;
+    setMisses(m); setVerdict(v);
+    const hint = !v.ok && m === (age === '3' ? 1 : 2) ? ' 그림을 보고 같이 찾아봐요.' : '';
+    say(v.say + hint);
+  };
   const shown = items.filter(i => i.aisle === aisle);
   const shelves = [...new Set(shown.map(i => i.shelf))];
 
@@ -189,6 +206,16 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
             <Bubble who={`${order.customer.name} 손님`} line={verdict ? verdict.say : hello} sub={verdict && !solved ? `주문: ${line}` : undefined}
               onListen={() => say(verdict ? verdict.say : hello)} />
           </div>
+          {showPics && (
+            <div className="order-pics" aria-label={`주문 그림: ${line}`}>
+              {order.lines.map(l => (
+                <span key={l.item.id} className="order-pic">
+                  {Array.from({ length: l.count }, (_, k) => <Pic key={k} pic={l.item.pic} size={l.count > 3 ? 36 : 48} />)}
+                  <b>{l.item.name} {countWord(l.count)} {unitOf(l.item)}</b>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="basket" aria-label="장바구니">
             <p className="basket-title">🧺 장바구니</p>
             {total === 0 ? <p className="basket-empty">진열대에서 물건을 눌러 담아요</p> : (
@@ -338,12 +365,12 @@ function Start({ shop, mode, setMode, age, setAge, onStart, onTeacher }: {
       <h1>{shop.name}</h1>
       <p className="lead">오늘은 무엇을 해 볼까요?</p>
       <div className="modes">
-        <button type="button" className="mode" aria-pressed={mode === 'clerk'} onClick={() => setMode('clerk')}>
+        <button type="button" className="mode" aria-pressed={mode === 'clerk'} onClick={() => { setMode('clerk'); say('내가 점원이에요. 손님 말을 듣고 물건을 골라요.'); }}>
           <span className="mode-art" aria-hidden="true">{art.map(i => <Pic key={i.id} pic={i.pic} size={56} />)}</span>
           <b>내가 점원이에요</b>
           <small>손님 말을 듣고 물건을 골라요</small>
         </button>
-        <button type="button" className="mode" aria-pressed={mode === 'customer'} onClick={() => setMode('customer')}>
+        <button type="button" className="mode" aria-pressed={mode === 'customer'} onClick={() => { setMode('customer'); say('내가 손님이에요. 그림을 보고 말로 주문해요.'); }}>
           <span className="mode-art" aria-hidden="true">🎤</span>
           <b>내가 손님이에요</b>
           <small>그림을 보고 말로 주문해요</small>
@@ -351,7 +378,7 @@ function Start({ shop, mode, setMode, age, setAge, onStart, onTeacher }: {
       </div>
       <div className="ages" role="group" aria-label="나이">
         {AGES.map(a => (
-          <button type="button" key={a.id} className="age" aria-pressed={age === a.id} onClick={() => setAge(a.id)}>
+          <button type="button" key={a.id} className="age" aria-pressed={age === a.id} onClick={() => { setAge(a.id); say(AGE_SAY[a.id]); }}>
             <b>{a.label}</b><small>{a.detail}</small>
           </button>
         ))}
@@ -364,13 +391,18 @@ function Start({ shop, mode, setMode, age, setAge, onStart, onTeacher }: {
 }
 
 function Done({ mode, rounds, customers, onAgain, onHome }: { mode: Mode; rounds: number; customers: string[]; onAgain: () => void; onHome: () => void }) {
-  const text = mode === 'clerk' ? `오늘 손님 ${countWord(rounds)} 명을 도와줬어요.` : `오늘 물건을 ${countWord(rounds)} 번 주문했어요.`;
-  useEffect(() => { say(`${text} 정말 잘했어요!`); }, [text]);
+  // 결과보다 한 일을 짚어 칭찬하고, 화면 밖 진짜 놀이로 이어 갑니다.
+  const text = mode === 'clerk'
+    ? `손님 ${countWord(rounds)} 명의 말을 끝까지 듣고, 물건을 하나씩 세어서 담았어요.`
+    : `그림을 보고 ${countWord(rounds)} 번이나 또박또박 주문했어요.`;
+  const next = '이제 친구랑 진짜 가게 놀이를 해 볼까요? 한 명은 점원, 한 명은 손님이에요.';
+  useEffect(() => { say(`${text} ${next}`); }, [text]);
   return (
     <main className="start done">
       <p className="big-stars" aria-hidden="true">{'★'.repeat(Math.min(rounds, 5))}</p>
       <h1>참 잘했어요!</h1>
       <p className="lead">{text}</p>
+      <p className="next-play">{next}</p>
       <div className="done-animals" aria-hidden="true">
         {customers.map(id => <Animal key={id} id={id} size={72} happy />)}
       </div>

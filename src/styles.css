@@ -207,3 +207,9 @@ main { max-width: 1100px; margin: 0 auto; min-height: 100dvh; padding: 16px; dis
 .t-voice { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 12px 0 4px; }
 .t-voice input[type=range] { width: 160px; min-height: 44px; accent-color: var(--blue); }
 .t-val { font-weight: 400; color: var(--blue); margin-left: 4px; }
+
+/* 점원 놀이 그림 힌트 */
+.order-pics { display: flex; flex-wrap: wrap; gap: 10px; background: #FFFBEA; border: 3px dashed #F5C77E; border-radius: 18px; padding: 10px 12px; }
+.order-pic { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.order-pic b { font-size: 18px; margin-left: 4px; }
+.next-play { margin: 0; font-size: 20px; color: var(--soft); max-width: 640px; }

@@ -86,6 +86,13 @@ export function say(text: string, p: VoicePrefs = prefs): void {
   waiting = setTimeout(tryLater, 100);
 }
 
+/** 다른 말을 하고 있지 않을 때만 짧게 말합니다 (물건 이름 들려주기처럼 손님 말을 끊으면 안 될 때). */
+export function sayIfQuiet(text: string, p: VoicePrefs = prefs): void {
+  const synth = synthOf();
+  if (synth?.speaking || synth?.pending) return;
+  say(text, p);
+}
+
 export function hush(): void {
   clearTimeout(waiting);
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();

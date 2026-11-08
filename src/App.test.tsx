@@ -173,3 +173,44 @@ it('다섯 번 하면 끝 화면', async () => {
   }
   expect(screen.getByRole('heading', { name: '참 잘했어요!' })).toBeInTheDocument();
 });
+
+describe('유아 교육 관점 보완', () => {
+  it('점원 놀이: 5~6세는 두 번 막히면 주문을 그림으로도 보여 줍니다', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '바나나 담기' }));
+    await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
+    expect(screen.queryByLabelText(/주문 그림/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
+    expect(screen.getByLabelText('주문 그림: 사과 한 개 주세요.')).toHaveTextContent('사과 한 개');
+  });
+
+  it('점원 놀이: 3~4세는 한 번만 막혀도 그림을 보여 주고, 맞히면 그림이 사라집니다', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: /3~4세/ }));
+    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '바나나 담기' }));
+    await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
+    expect(screen.getByLabelText(/주문 그림/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '바나나 하나 빼기' }));
+    await user.click(screen.getByRole('button', { name: '사과 담기' }));
+    await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
+    expect(screen.queryByLabelText(/주문 그림/)).toBeNull();
+  });
+
+  it('끝 화면은 한 일을 짚어 칭찬하고, 친구와 하는 진짜 놀이로 이어 줍니다', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    for (let i = 0; i < 5; i++) {
+      await user.click(screen.getByRole('button', { name: '사과 담기' }));
+      await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
+      if (!screen.queryByRole('button', { name: /다음 손님 오세요|오늘 가게 놀이 끝!/ })) break;
+      await user.click(screen.getByRole('button', { name: /다음 손님 오세요|오늘 가게 놀이 끝!/ }));
+    }
+    expect(screen.getByText(/물건을 하나씩 세어서 담았어요/)).toBeInTheDocument();
+    expect(screen.getByText(/친구랑 진짜 가게 놀이/)).toBeInTheDocument();
+  });
+});
