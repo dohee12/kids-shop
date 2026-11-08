@@ -2,7 +2,7 @@
 // 고친 것은 "저장하기"를 눌러야 아이 화면에 나오고, 이 기기 브라우저에만 저장됩니다.
 import { useEffect, useRef, useState } from 'react';
 import { ART_IDS, Animal, Pic } from './Art';
-import { CUSTOMERS, ITEMS, UNITS, shownItems, type Item, type Shop } from './game';
+import { CUSTOMERS, ITEMS, UNITS, josa, ro, shownItems, type Item, type Shop } from './game';
 import { DEFAULT_VOICE, koreanVoices, say, voiceLabel, voiceScore } from './speech';
 import {
   LIMITS, PASTE_HELP, PITCH, RATE, blocking, checkShop, exportText, fromPaste, importText, newId, toPaste, type Store,
@@ -14,7 +14,10 @@ type Props = { store: Store; draft?: Store | null; onSave: (s: Store) => boolean
 
 const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const ART_NAME: Record<string, string> = Object.fromEntries(ITEMS.map(i => [i.id, i.name]));
-const ask = (q: string) => (typeof window.confirm === 'function' ? window.confirm(q) : true);
+/** 이름에 따옴표를 두르고 받침에 맞는 조사를 붙입니다: ‘꼬마 빵집’을 / ‘바나나’를 */
+const q = (name: string, a: string, b: string) => `‘${name}’${josa(name, a, b).slice(name.length)}`;
+const qro = (name: string) => `‘${name}’${ro(name).slice(name.length)}`;
+const ask = (question: string) => (typeof window.confirm === 'function' ? window.confirm(question) : true);
 
 /** 사진을 160×160 으로 줄여 저장 공간을 아낍니다 (흰 바탕에 물건이 다 보이게). */
 async function shrinkPhoto(file: File): Promise<string> {
@@ -77,7 +80,7 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
   const shop = shops.find(s => s.id === current) ?? shops[0];
   const draft = (): Store => ({ current: shop.id, micOn, voice, shops: tidy(shops) });
   const dirty = JSON.stringify(draft()) !== JSON.stringify(store);
-  const problems = shops.flatMap(s => checkShop(s).map(p => (s.id === shop.id ? p : `「${s.name}」 ${p}`)));
+  const problems = shops.flatMap(s => checkShop(s).map(p => (s.id === shop.id ? p : `‘${s.name}’ ${p}`)));
   const stop = blocking(problems);
 
   const update = (patch: Partial<Shop>) => { setShops(list => list.map(s => (s.id === shop.id ? { ...s, ...patch } : s))); setNote(''); };
@@ -95,16 +98,16 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
     const id = newId('t', shops.map(s => s.id));
     setShops([...shops, { ...copy(shop), id, name: `${shop.name} 2`.slice(0, LIMITS.name) }]);
     setCurrent(id);
-    setNote(`「${shop.name}」을 복사했어요. 이름과 물건을 바꿔 보세요.`);
+    setNote(`${q(shop.name, '을', '를')} 복사했어요. 이름과 물건을 바꿔 보세요.`);
   };
   const resetTheme = () => {
     const base = BUILTIN.find(b => b.id === shop.id);
-    if (!base || !ask(`「${base.name}」을 처음 상태로 되돌릴까요? 고친 물건과 사진이 없어져요.`)) return;
+    if (!base || !ask(`${q(base.name, '을', '를')} 처음 상태로 되돌릴까요? 고친 물건과 사진이 없어져요.`)) return;
     update(copy(base));
     setNote('처음 상태로 되돌렸어요. 저장하기를 눌러야 반영돼요.');
   };
   const removeTheme = () => {
-    if (!ask(`「${shop.name}」 주제를 지울까요?`)) return;
+    if (!ask(`‘${shop.name}’ 주제를 지울까요?`)) return;
     const rest = shops.filter(s => s.id !== shop.id);
     setShops(rest);
     setCurrent(rest[0].id);
@@ -119,7 +122,7 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
   const removeAisle = (id: string) => {
     const rest = shop.aisles.filter(a => a.id !== id);
     const moving = shop.items.filter(i => i.aisle === id).length;
-    if (moving && !ask(`이 통로의 물건 ${moving}개는 「${rest[0].label}」로 옮겨져요. 통로를 지울까요?`)) return;
+    if (moving && !ask(`이 통로의 물건 ${moving}개는 ${qro(rest[0].label)} 옮겨져요. 통로를 지울까요?`)) return;
     update({ aisles: rest, items: shop.items.map(i => (i.aisle === id ? { ...i, aisle: rest[0].id } : i)) });
   };
 
@@ -132,7 +135,7 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
     setPicFor(null);
   };
   const removeItem = (it: Item) => {
-    if (it.name && !ask(`「${it.name}」을 지울까요?`)) return;
+    if (it.name && !ask(`${q(it.name, '을', '를')} 지울까요?`)) return;
     update({ items: shop.items.filter(i => i.id !== it.id) });
   };
   const putPhoto = async (id: string, file?: File) => {
@@ -169,7 +172,7 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
     if (!got) { setNote('이 앱에서 내보낸 파일이 아니에요. "파일로 내보내기"로 만든 .json 파일을 골라 주세요.'); return; }
     setShops([...shops, got]);
     setCurrent(got.id);
-    setNote(`「${got.name}」 주제를 불러왔어요. 저장하기를 눌러야 반영돼요.`);
+    setNote(`‘${got.name}’ 주제를 불러왔어요. 저장하기를 눌러야 반영돼요.`);
   };
 
   const n = (it: Item) => shop.items.indexOf(it) + 1;
@@ -268,7 +271,7 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
             const on = shop.customers.includes(c.id);
             const last = on && shop.customers.length === 1;
             return (
-              <label key={c.id} className="t-guest" title={last ? '손님은 한 명 넘게 있어야 해요' : undefined}>
+              <label key={c.id} className="t-guest" title={last ? '손님은 한 명 이상 있어야 해요' : undefined}>
                 <input type="checkbox" checked={on} disabled={last}
                   onChange={() => update({ customers: on ? shop.customers.filter(x => x !== c.id) : CUSTOMERS.map(k => k.id).filter(x => x === c.id || shop.customers.includes(x)) })} />
                 <Animal id={c.id} size={40} />{c.name}

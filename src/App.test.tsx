@@ -43,7 +43,7 @@ describe('점원 놀이', () => {
     await user.click(screen.getByRole('button', { name: '바나나 하나 빼기' }));
     await user.click(screen.getByRole('button', { name: '사과 담기' }));
     await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
-    expect(screen.getByText('고마워요! 사과 한 개 맞아요.')).toBeInTheDocument();
+    expect(screen.getByText('고마워요! 사과 한 개, 딱 맞아요.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '다음 손님 오세요' }));
     expect(screen.getByLabelText('손님 5명 중 2번째')).toBeInTheDocument();
   });
@@ -103,7 +103,7 @@ describe('손님 놀이 (말하기)', () => {
 
     await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     speak('음 이거요');
-    expect(line()).toBe('어떤 물건을 드릴까요? 그림을 보고 이름을 말해 봐요. 점원이 먼저 말해 볼게요. 따라 해 봐요. 사과 한 개 주세요.');
+    expect(line()).toBe('어떤 물건을 드릴까요? 그림을 보고 이름을 말해 봐요. 제가 먼저 말해 볼게요. 잘 듣고 따라 해 봐요. 사과 한 개 주세요.');
 
     await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     speak('사과 한 개 주세요');

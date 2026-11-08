@@ -234,9 +234,9 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
 
   const misses = useRef(0);
   const answer = (v: Verdict, counts = true) => {
-    // 두 번 넘게 막히면 점원이 먼저 말해 주고 따라 하게 합니다.
+    // 두 번 막히면 점원이 먼저 말해 주고 따라 하게 합니다.
     if (!v.ok && counts) misses.current += 1;
-    const text = !v.ok && counts && misses.current >= 2 ? `${v.say} 점원이 먼저 말해 볼게요. 따라 해 봐요. ${model}` : v.say;
+    const text = !v.ok && counts && misses.current >= 2 ? `${v.say} 제가 먼저 말해 볼게요. 잘 듣고 따라 해 봐요. ${model}` : v.say;
     setLine(text); setSolved(v.ok); say(text);
   };
   const listen = (agreed = micAgreed) => {
@@ -254,7 +254,7 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
       onError: code => {
         const say = code === 'not-allowed' || code === 'service-not-allowed' ? '마이크를 쓸 수 없어요. 선생님, 주소창 옆 자물쇠를 눌러 마이크를 허용해 주세요.'
           : code === 'audio-capture' ? '마이크를 찾을 수 없어요. 선생님, 마이크가 연결되어 있는지 봐 주세요.'
-          : code === 'network' ? '인터넷이 연결되지 않아 말을 못 알아들었어요. 선생님이 듣고 눌러 주세요.'
+          : code === 'network' ? '인터넷이 끊겨서 말을 알아듣지 못했어요. 선생님이 듣고 "잘 말했어요"를 눌러 주세요.'
           : '말 알아듣기가 잠깐 멈췄어요. 다시 눌러 볼까요?';
         answer({ ok: false, kind: code, say }, false);
       },
@@ -282,7 +282,7 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
               </div>
             ))}
           </div>
-          <button type="button" className="pill model" onClick={() => say(model)}>👂 따라 말하기 듣기</button>
+          <button type="button" className="pill model" onClick={() => say(model)}>👂 어떻게 말하는지 듣기</button>
           {age !== '7' && <p className="model-text">"{model}"</p>}
         </section>
 

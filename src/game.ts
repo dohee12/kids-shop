@@ -100,6 +100,14 @@ const hasBatchim = (word: string) => {
 };
 /** 받침이 있으면 a, 없으면 b ("공은" / "우유는") */
 export const josa = (word: string, a: string, b: string) => word + (hasBatchim(word) ? a : b);
+/** "으로"/"로": 받침이 없거나 ㄹ 받침이면 "로" ("통로로", "진열대로", "먹거리로", "1번 칸으로") */
+export const ro = (word: string) => {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  const jong = code >= 0 && code <= 11171 ? code % 28 : 0;
+  return word + (jong === 0 || jong === 8 ? '로' : '으로');
+};
+/** 여러 말을 "랑/이랑"으로 잇습니다: ["수박", "포도"] → "수박이랑 포도" */
+export const joinAnd = (words: string[]) => words.map((w, i) => (i < words.length - 1 ? josa(w, '이랑', '랑') : w)).join(' ');
 
 export function makeOrder(mode: Mode, age: Age, rng: () => number = Math.random, previous?: Order, shop: Shop = SUPER): Order {
   const rule = RULES[mode][age];
@@ -123,10 +131,11 @@ export function makeOrder(mode: Mode, age: Age, rng: () => number = Math.random,
   }
 }
 
-/** "우유 한 개 주세요." / "우유 한 개랑 포도 두 송이 주세요." */
-export const orderText = (order: Order) => `${orderList(order, '랑 ')} 주세요.`;
-export const orderList = (order: Order, sep = ', ') => order.lines.map(l => `${l.item.name} ${countWord(l.count)} ${unitOf(l.item)}`).join(sep);
-const names = (order: Order) => order.lines.map(l => l.item.name).join('랑 ');
+/** "우유 한 개 주세요." / "케이크 한 조각이랑 포도 두 송이 주세요." */
+export const orderText = (order: Order) => `${orderList(order)} 주세요.`;
+/** "우유 한 개랑 사과 두 개" */
+export const orderList = (order: Order) => joinAnd(order.lines.map(l => `${l.item.name} ${countWord(l.count)} ${unitOf(l.item)}`));
+const names = (order: Order) => joinAnd(order.lines.map(l => l.item.name));
 
 export type Verdict = { ok: boolean; say: string; kind: string };
 
@@ -140,10 +149,15 @@ export function judge(order: Order, tray: Tray, items: readonly Item[] = ITEMS):
     const have = tray[l.item.id] ?? 0;
     const subj = josa(l.item.name, '이', '가');
     const u = unitOf(l.item);
-    if (have < l.count) return { ok: false, kind: 'too-few', say: `${have ? `${subj} ${countWord(have)} ${u} 있어요.` : `${subj} 없어요.`} ${countWord(l.count - have)} ${u} 더 주세요.` };
-    if (have > l.count) return { ok: false, kind: 'too-many', say: `${subj} 조금 많아요. ${countWord(have - l.count)} ${u} 빼 볼까요?` };
+    if (have < l.count) {
+      const say = have
+        ? `${subj} ${countWord(have)} ${u}밖에 없어요. ${countWord(l.count - have)} ${u} 더 주세요.`
+        : `${josa(l.item.name, '은', '는')} 아직 없어요. ${countWord(l.count)} ${u} 담아 주세요.`;
+      return { ok: false, kind: 'too-few', say };
+    }
+    if (have > l.count) return { ok: false, kind: 'too-many', say: `${subj} 많아요. ${countWord(have - l.count)} ${u} 빼 주세요.` };
   }
-  return { ok: true, kind: 'ok', say: `고마워요! ${orderList(order)} 맞아요.` };
+  return { ok: true, kind: 'ok', say: `고마워요! ${orderList(order)}, 딱 맞아요.` };
 }
 
 // ── 손님 놀이: 아이가 말한 문장 알아듣기 ──
@@ -205,9 +219,9 @@ export function judgeSpoken(order: Order, text: string, age: Age, items: readonl
   for (const l of order.lines) {
     const n = said.get(l.item.id);
     if (n == null && l.count > 1) return { ok: false, kind: 'no-count', say: `${josa(l.item.name, '은', '는')} 몇 ${unitOf(l.item)}일까요? 그림을 세어 보고 말해 봐요.` };
-    if (n != null && n !== l.count) return { ok: false, kind: 'wrong-count', say: `${josa(l.item.name, '을', '를')} 다시 세어 볼까요? 하나, 둘, 셋.` };
+    if (n != null && n !== l.count) return { ok: false, kind: 'wrong-count', say: `${josa(l.item.name, '을', '를')} 하나씩 다시 세어 볼까요?` };
   }
   const polite = /주세요|줘요|주실래요|주시겠어요|부탁/.test(norm(text));
-  const tip = !polite && age !== '3' ? ' 다음에는 끝에 "주세요"도 붙여 볼까요?' : '';
+  const tip = !polite && age !== '3' ? ' 다음에는 끝에 "주세요"를 붙여서 말해 봐요.' : '';
   return { ok: true, kind: 'ok', say: `네! ${orderList(order)} 드릴게요.${tip}` };
 }

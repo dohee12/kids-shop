@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUSTOMERS, ITEMS, judge, judgeSpoken, makeOrder, orderText, parseSpoken, type Order } from './game';
+import { CUSTOMERS, ITEMS, judge, judgeSpoken, makeOrder, orderText, parseSpoken, ro, type Order } from './game';
 
 const item = (id: string) => ITEMS.find(x => x.id === id)!;
 const order = (...lines: [string, number][]): Order => ({ customer: CUSTOMERS[0], lines: lines.map(([id, count]) => ({ item: item(id), count })) });
@@ -33,15 +33,15 @@ describe('주문 만들기', () => {
 
 describe('점원 놀이: 장바구니 보기', () => {
   const o = order(['milk', 1], ['apple', 2]);
-  it('맞으면 칭찬', () => expect(judge(o, { milk: 1, apple: 2 })).toMatchObject({ ok: true, say: '고마워요! 우유 한 개, 사과 두 개 맞아요.' }));
+  it('맞으면 칭찬', () => expect(judge(o, { milk: 1, apple: 2 })).toMatchObject({ ok: true, say: '고마워요! 우유 한 개랑 사과 두 개, 딱 맞아요.' }));
   it('비었으면', () => expect(judge(o, {})).toMatchObject({ ok: false, kind: 'empty' }));
   it('안 시킨 물건은 받침에 맞춰', () => {
     expect(judge(o, { ball: 1 }).say).toBe('공은 안 시켰어요. 우유랑 사과를 찾아볼까요?');
     expect(judge(o, { soap: 1 }).say).toBe('비누는 안 시켰어요. 우유랑 사과를 찾아볼까요?');
   });
   it('모자라거나 많으면', () => {
-    expect(judge(o, { milk: 1, apple: 1 }).say).toBe('사과가 한 개 있어요. 한 개 더 주세요.');
-    expect(judge(o, { milk: 3, apple: 2 }).say).toBe('우유가 조금 많아요. 두 개 빼 볼까요?');
+    expect(judge(o, { milk: 1, apple: 1 }).say).toBe('사과가 한 개밖에 없어요. 한 개 더 주세요.');
+    expect(judge(o, { milk: 3, apple: 2 }).say).toBe('우유가 많아요. 두 개 빼 주세요.');
   });
 });
 
@@ -93,15 +93,35 @@ describe('손님 놀이: 말 알아듣기', () => {
 
 describe('손님 놀이: 점원이 할 말', () => {
   const o = order(['milk', 1], ['apple', 2]);
-  it('맞으면', () => expect(judgeSpoken(o, '우유 한 개랑 사과 두 개 주세요', '5')).toMatchObject({ ok: true, say: '네! 우유 한 개, 사과 두 개 드릴게요.' }));
+  it('맞으면', () => expect(judgeSpoken(o, '우유 한 개랑 사과 두 개 주세요', '5')).toMatchObject({ ok: true, say: '네! 우유 한 개랑 사과 두 개 드릴게요.' }));
   it('"주세요"가 없으면 맞다고 하고 살짝 알려 줍니다 (3~4세는 빼고)', () => {
-    expect(judgeSpoken(o, '우유 하나 사과 둘', '5').say).toContain('"주세요"도 붙여 볼까요?');
-    expect(judgeSpoken(o, '우유 하나 사과 둘', '3').say).not.toContain('주세요"도');
+    expect(judgeSpoken(o, '우유 하나 사과 둘', '5').say).toContain('"주세요"를 붙여서 말해 봐요.');
+    expect(judgeSpoken(o, '우유 하나 사과 둘', '3').say).not.toContain('붙여서');
   });
   it('한 개짜리는 개수를 안 말해도 됩니다', () => expect(judgeSpoken(order(['milk', 1]), '우유 주세요', '3').ok).toBe(true));
   it('여러 개인데 개수를 안 말하면', () => expect(judgeSpoken(o, '우유 하나랑 사과 주세요', '5').say).toBe('사과는 몇 개일까요? 그림을 세어 보고 말해 봐요.'));
   it('하나를 빠뜨리면', () => expect(judgeSpoken(o, '사과 두 개 주세요', '5').say).toBe('우유도 말해 볼까요?'));
-  it('개수가 틀리면 답을 말하지 않고 다시 세게 합니다', () => expect(judgeSpoken(o, '우유 한 개 사과 세 개', '5').say).toBe('사과를 다시 세어 볼까요? 하나, 둘, 셋.'));
+  it('개수가 틀리면 답을 말하지 않고 다시 세게 합니다', () => expect(judgeSpoken(o, '우유 한 개 사과 세 개', '5').say).toBe('사과를 하나씩 다시 세어 볼까요?'));
   it('그림에 없는 물건', () => expect(judgeSpoken(o, '바나나 주세요', '5').say).toBe('바나나는 그림에 없어요. 그림을 다시 볼까요?'));
   it('물건 이름이 없으면', () => expect(judgeSpoken(o, '음 이거요', '5').kind).toBe('nothing'));
+});
+
+describe('자연스러운 조사', () => {
+  it('받침 뒤에는 "이랑"', () => {
+    const cake = { id: 'cake', name: '케이크', aisle: 'food', shelf: '빵', unit: '조각' };
+    const melon = { id: 'melon', name: '수박', aisle: 'food', shelf: '과일', unit: '통' };
+    const o = { customer: CUSTOMERS[0], lines: [{ item: cake, count: 1 }, { item: item('milk'), count: 2 }] };
+    expect(orderText(o)).toBe('케이크 한 조각이랑 우유 두 개 주세요.');
+    const o2 = { customer: CUSTOMERS[0], lines: [{ item: melon, count: 1 }, { item: item('carrot'), count: 1 }] };
+    expect(judge(o2, { ball: 1 }, [...ITEMS, melon]).say).toBe('공은 안 시켰어요. 수박이랑 당근을 찾아볼까요?');
+  });
+  it('으로/로', () => {
+    expect(ro('1번 통로 · 먹거리')).toBe('1번 통로 · 먹거리로');
+    expect(ro('과일 진열대')).toBe('과일 진열대로');
+    expect(ro('빵 칸')).toBe('빵 칸으로');
+    expect(ro('장난감 통로 2')).toBe('장난감 통로 2로');
+  });
+  it('하나도 안 담았으면 "더"를 붙이지 않습니다', () => {
+    expect(judge(order(['milk', 1], ['apple', 2]), { milk: 1 }).say).toBe('사과는 아직 없어요. 두 개 담아 주세요.');
+  });
 });
