@@ -18,7 +18,9 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   // 선생님 페이지의 "아이 화면 미리보기": 저장하지 않은 내용으로 잠깐 놀아 봅니다.
   const [preview, setPreview] = useState<Store | null>(null);
   const active = preview ?? store;
-  const shop = active.shops.find(s => s.id === active.current) ?? active.shops[0];
+  // 마을 지도에서 아이가 고른 가게. 저장하지 않고, 처음엔 선생님이 정한 가게입니다.
+  const [picked, setPicked] = useState<string | null>(null);
+  const shop = active.shops.find(s => s.id === (picked ?? active.current)) ?? active.shops[0];
   const rounds = shop.rounds;
   const micOn = active.micOn;
   setVoice(active.voice); // 다음 say() 부터 이 목소리로
@@ -44,22 +46,23 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
     setOrder(makeOrder(mode, age, rng, order ?? undefined, shop));
   };
   const home = () => { hush(); setScreen('start'); };
-  const leaveTeacher = () => { setPreview(null); setScreen('start'); };
+  const leaveTeacher = () => { setPreview(null); setPicked(null); setScreen('start'); };
   const saveShops = (s: Store) => {
     if (!saveStore(s)) return false;
     setStore(s);
     setPreview(null);
+    setPicked(null);
     return true;
   };
 
   if (screen === 'gate') return <Gate rng={rng} onPass={() => setScreen('teacher')} onCancel={() => setScreen('start')} />;
   if (screen === 'teacher') {
     return <Teacher store={store} draft={preview} onSave={saveShops} onClose={leaveTeacher}
-      onPreview={d => { setPreview(d); setScreen('start'); }} />;
+      onPreview={d => { setPreview(d); setPicked(null); setScreen('start'); }} />;
   }
   if (screen === 'done') return <Done mode={mode} rounds={rounds} customers={shop.customers} onAgain={() => start()} onHome={home} />;
   if (screen === 'play' && order) {
-    const top = <Top title={shop.name} round={round} rounds={rounds} onHome={home} />;
+    const top = <Top title={shop.name} round={round} rounds={rounds} customer={order.customer.id} onHome={home} />;
     return mode === 'clerk'
       ? <ClerkPlay key={round} top={top} shop={shop} order={order} age={age} last={round >= rounds} onNext={next} />
       : <CustomerPlay key={round} top={top} shop={shop} order={order} age={age} last={round >= rounds} onNext={next}
@@ -73,7 +76,7 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
           <button type="button" className="t-btn primary" onClick={() => setScreen('teacher')}>선생님 페이지로 돌아가기</button>
         </div>
       )}
-      <Start shop={shop} mode={mode} setMode={setMode} age={age} setAge={setAge}
+      <Start shops={active.shops} shop={shop} onPick={id => setPicked(id)} mode={mode} setMode={setMode} age={age} setAge={setAge}
         onStart={() => start()} onTeacher={() => setScreen(preview ? 'teacher' : 'gate')} />
     </>
   );
@@ -105,15 +108,52 @@ function Gate({ rng, onPass, onCancel }: { rng: () => number; onPass: () => void
   );
 }
 
-function Top({ title, round, rounds, onHome }: { title: string; round: number; rounds: number; onHome: () => void }) {
+function Top({ title, round, rounds, customer, onHome }: { title: string; round: number; rounds: number; customer: string; onHome: () => void }) {
   return (
     <header className="top">
-      <button type="button" className="link" onClick={onHome}>‹ 처음으로</button>
+      <button type="button" className="link" onClick={onHome}>‹ 마을로</button>
       <p className="top-title">{title}</p>
-      <p className="stars" aria-label={`손님 ${rounds}명 중 ${round}번째`}>
-        {Array.from({ length: rounds }, (_, i) => <span key={i} className={i < round - 1 ? 'on' : i === round - 1 ? 'now' : ''}>★</span>)}
+      {/* 손님이 걸어오는 길: 지난 손님은 별, 지금 손님은 얼굴 */}
+      <p className="road" aria-label={`손님 ${rounds}명 중 ${round}번째`}>
+        {Array.from({ length: rounds }, (_, i) => (
+          <span key={i} className="road-step">
+            {i > 0 && <i className={i < round ? 'road-line on' : 'road-line'} aria-hidden="true" />}
+            <span className={i < round - 1 ? 'road-dot on' : i === round - 1 ? 'road-dot now' : 'road-dot'} aria-hidden="true">
+              {i < round - 1 ? '★' : i === round - 1 ? <Animal id={customer} size={28} /> : null}
+            </span>
+          </span>
+        ))}
       </p>
     </header>
+  );
+}
+
+/** 맞혔을 때 축하 화면. 점수·스티커 같은 보상은 주지 않고 한 일만 짚어 줍니다. */
+function Celebrate({ animal, title, line, next, onNext }: { animal: string; title: string; line: string; next: string; onNext: () => void }) {
+  return (
+    <div className="celebrate" role="dialog" aria-label={title}>
+      <div className="confetti" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} />)}</div>
+      <div className="celebrate-card">
+        <Animal id={animal} size={110} happy />
+        <h2>{title}</h2>
+        <p>{line}</p>
+        <button type="button" className="big go blue" onClick={onNext} autoFocus>{next}</button>
+      </div>
+    </div>
+  );
+}
+
+/** 손님 기분: 맞는 물건을 맞는 만큼 담을수록 하트가 찹니다. */
+function Mood({ value }: { value: number }) {
+  return (
+    <div className="mood" aria-label={`손님 기분 하트 3개 중 ${value}개`}>
+      {[1, 2, 3].map(k => (
+        <svg key={k} width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21s-7.5-4.6-9.5-9.3C1 8 3.4 4.5 7 4.5c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.6 0 6 3.5 4.5 7.2C19.5 16.4 12 21 12 21z"
+            fill={k <= value ? '#FF8FA3' : '#FFFFFF'} stroke="#E0607A" strokeWidth="1.6" strokeLinejoin="round" />
+        </svg>
+      ))}
+    </div>
   );
 }
 
@@ -144,6 +184,10 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   const hello = `안녕하세요! ${line}`;
   const solved = verdict?.ok === true;
   const total = Object.values(tray).reduce((a, b) => a + b, 0);
+  const want = order.lines.reduce((a, l) => a + l.count, 0);
+  const right = order.lines.reduce((a, l) => a + Math.min(tray[l.item.id] ?? 0, l.count), 0);
+  const wrong = total - right;
+  const mood = solved ? 3 : right * 2 >= want && wrong === 0 ? 2 : 1;
 
   useEffect(() => { say(hello); }, [hello]);
 
@@ -202,7 +246,10 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
 
         <section className="side">
           <div className="person">
-            <Animal id={order.customer.id} size={96} happy={solved} />
+            <div className="who-col">
+              <Animal id={order.customer.id} size={96} happy={solved} />
+              <Mood value={mood} />
+            </div>
             <Bubble who={`${order.customer.name} 손님`} line={verdict ? verdict.say : hello} sub={verdict && !solved ? `주문: ${line}` : undefined}
               onListen={() => say(verdict ? verdict.say : hello)} />
           </div>
@@ -232,11 +279,10 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
               </ul>
             )}
           </div>
-          {solved
-            ? <button type="button" className="big go blue" onClick={onNext}>{last ? '오늘 가게 놀이 끝!' : '다음 손님 오세요'}</button>
-            : <button type="button" className="big go" onClick={give} disabled={total === 0}>손님께 드리기</button>}
+          {!solved && <button type="button" className="big go" onClick={give} disabled={total === 0}>손님께 드리기</button>}
         </section>
       </div>
+      {solved && <Celebrate animal={order.customer.id} title="잘 골랐어요!" line={verdict!.say} next={last ? '오늘 가게 놀이 끝!' : '다음 손님 오세요'} onNext={onNext} />}
     </main>
   );
 }
@@ -343,48 +389,87 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
             </div>
           )}
 
-          {solved
-            ? <button type="button" className="big go blue" onClick={onNext}>{last ? '오늘 가게 놀이 끝!' : '다음 물건 사러 가요'}</button>
-            : <button type="button" className="teacher-ok" onClick={teacherOk}>선생님: 잘 말했어요</button>}
+          {!solved && <button type="button" className="teacher-ok" onClick={teacherOk}>선생님: 잘 말했어요</button>}
         </section>
       </div>
+      {solved && <Celebrate animal={order.customer.id} title="잘 말했어요!" line={line} next={last ? '오늘 가게 놀이 끝!' : '다음 물건 사러 가요'} onNext={onNext} />}
     </main>
   );
 }
 
 // ── 첫 화면, 끝 화면 ──
 
-function Start({ shop, mode, setMode, age, setAge, onStart, onTeacher }: {
-  shop: Shop; mode: Mode; setMode: (m: Mode) => void; age: Age; setAge: (a: Age) => void;
+const ROOFS = ['#E2502E', '#2E8B57', '#B5651D', '#3D6FD8', '#8E44AD', '#D6457A', '#2F8F9D', '#E08A1E'];
+
+function Start({ shops, shop, onPick, mode, setMode, age, setAge, onStart, onTeacher }: {
+  shops: Shop[]; shop: Shop; onPick: (id: string) => void; mode: Mode; setMode: (m: Mode) => void; age: Age; setAge: (a: Age) => void;
   onStart: () => void; onTeacher: () => void;
 }) {
-  const art = shownItems(shop).slice(0, 2);
+  const roofOf = (i: number) => ROOFS[i % ROOFS.length];
+  const cur = Math.max(0, shops.findIndex(s => s.id === shop.id));
   return (
-    <main className="start">
-      <div className="awning" aria-hidden="true" />
-      <h1>{shop.name}</h1>
-      <p className="lead">오늘은 무엇을 해 볼까요?</p>
-      <div className="modes">
-        <button type="button" className="mode" aria-pressed={mode === 'clerk'} onClick={() => { setMode('clerk'); say('내가 점원이에요. 손님 말을 듣고 물건을 골라요.'); }}>
-          <span className="mode-art" aria-hidden="true">{art.map(i => <Pic key={i.id} pic={i.pic} size={56} />)}</span>
-          <b>내가 점원이에요</b>
-          <small>손님 말을 듣고 물건을 골라요</small>
-        </button>
-        <button type="button" className="mode" aria-pressed={mode === 'customer'} onClick={() => { setMode('customer'); say('내가 손님이에요. 그림을 보고 말로 주문해요.'); }}>
-          <span className="mode-art" aria-hidden="true">🎤</span>
-          <b>내가 손님이에요</b>
-          <small>그림을 보고 말로 주문해요</small>
-        </button>
+    <main className="village">
+      <header className="sky">
+        <Animal id="rabbit" size={64} happy />
+        <h1>꼬마 역할놀이 마을</h1>
+        <svg className="hill" viewBox="0 0 1124 34" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34 Q120 0 260 22 T560 18 T860 20 T1124 10 V34z" fill="#BFE3C9" /></svg>
+      </header>
+      <div className="village-body">
+        <section className="map" aria-label="마을 지도">
+          <div className="map-grid">
+          {shops.map((s, i) => {
+            const sign = shownItems(s)[0];
+            return (
+              <button type="button" key={s.id} className="building" aria-pressed={s.id === shop.id}
+                onClick={() => { onPick(s.id); say(`${s.name}에 가 볼까요?`); }}>
+                <span className="bld">
+                  <svg width="132" height="116" viewBox="0 0 150 132" aria-hidden="true">
+                    <rect x="14" y="40" width="122" height="88" rx="8" fill="#FFF4E3" stroke="#5B4636" strokeWidth="3" />
+                    <path d="M6 44 L75 6 L144 44 Z" fill={roofOf(i)} stroke="#5B4636" strokeWidth="3" strokeLinejoin="round" />
+                    <rect x="30" y="54" width="90" height="34" rx="6" fill="#FFFFFF" stroke="#5B4636" strokeWidth="2" />
+                    <rect x="60" y="96" width="30" height="32" rx="4" fill="#7FB7E6" stroke="#5B4636" strokeWidth="2" />
+                    <rect x="24" y="98" width="24" height="20" rx="3" fill="#E7F5FF" stroke="#5B4636" strokeWidth="2" />
+                    <rect x="102" y="98" width="24" height="20" rx="3" fill="#E7F5FF" stroke="#5B4636" strokeWidth="2" />
+                  </svg>
+                  {sign && <span className="bld-sign"><Pic pic={sign.pic} size={28} /></span>}
+                </span>
+                <span className="bld-name">{s.name}</span>
+              </button>
+            );
+          })}
+          </div>
+          {/* 마을 길과 나무 (꾸밈) */}
+          <svg className="scenery" viewBox="0 0 760 120" aria-hidden="true">
+            <rect x="0" y="62" width="760" height="40" rx="20" fill="#C9D3DC" />
+            <path d="M20 82 H740" stroke="#FFFFFF" strokeWidth="4" strokeDasharray="22 16" />
+            <g fill="#2E8B57"><circle cx="70" cy="34" r="22" /><circle cx="250" cy="30" r="26" /><circle cx="470" cy="34" r="22" /><circle cx="680" cy="30" r="26" /></g>
+            <g fill="#8B5E3C"><rect x="66" y="50" width="8" height="14" /><rect x="246" y="50" width="8" height="14" /><rect x="466" y="50" width="8" height="14" /><rect x="676" y="50" width="8" height="14" /></g>
+            <g fill="#FFC531"><circle cx="150" cy="54" r="5" /><circle cx="370" cy="52" r="5" /><circle cx="580" cy="54" r="5" /></g>
+          </svg>
+        </section>
+        <aside className="pick" aria-label="놀이 고르기">
+          <p className="pick-small">여기로 놀러 가요</p>
+          <h2 style={{ color: roofOf(cur) }}>{shop.name}</h2>
+          <p className="pick-q">누가 되어 볼까요?</p>
+          <div className="roles">
+            <button type="button" className="role" aria-pressed={mode === 'clerk'} onClick={() => { setMode('clerk'); say('내가 점원이에요. 손님 말을 듣고 물건을 골라요.'); }}>
+              <b>내가 점원이에요</b><small>손님 말을 듣고 물건을 골라요</small>
+            </button>
+            <button type="button" className="role" aria-pressed={mode === 'customer'} onClick={() => { setMode('customer'); say('내가 손님이에요. 그림을 보고 말로 주문해요.'); }}>
+              <b>내가 손님이에요</b><small>그림을 보고 말로 주문해요</small>
+            </button>
+          </div>
+          <div className="ages" role="group" aria-label="나이">
+            {AGES.map(a => (
+              <button type="button" key={a.id} className="age" aria-pressed={age === a.id} onClick={() => { setAge(a.id); say(AGE_SAY[a.id]); }}>
+                <b>{a.label}</b><small>{a.detail}</small>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="big go" onClick={onStart}>놀러 가기 →</button>
+        </aside>
       </div>
-      <div className="ages" role="group" aria-label="나이">
-        {AGES.map(a => (
-          <button type="button" key={a.id} className="age" aria-pressed={age === a.id} onClick={() => { setAge(a.id); say(AGE_SAY[a.id]); }}>
-            <b>{a.label}</b><small>{a.detail}</small>
-          </button>
-        ))}
-      </div>
-      <button type="button" className="big go" onClick={onStart}>가게 문 열기</button>
-      {/* 선생님 버튼은 아이가 누르는 곳(놀이 고르기·나이·문 열기)에서 떨어진 오른쪽 위 구석에 작게 둡니다. */}
+      {/* 선생님 버튼: 아이 놀이 영역 밖, 오른쪽 맨 아래 구석에 작게 */}
       <button type="button" className="teacher-entry sans" onClick={onTeacher}>⚙ 선생님 설정</button>
     </main>
   );

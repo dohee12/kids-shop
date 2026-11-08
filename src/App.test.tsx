@@ -23,7 +23,7 @@ async function openCustomer(recognizer: Recognizer) {
   const user = userEvent.setup();
   render(<App rng={zero} recognizer={recognizer} />);
   await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
-  await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+  await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
   return user;
 }
 const line = () => document.querySelector('.line')!.textContent;
@@ -32,7 +32,7 @@ describe('점원 놀이', () => {
   it('주문을 듣고 고르고, 틀리면 도와주고, 맞으면 다음 손님', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.getByText('안녕하세요! 사과 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '손님께 드리기' })).toBeDisabled();
 
@@ -43,7 +43,7 @@ describe('점원 놀이', () => {
     await user.click(screen.getByRole('button', { name: '바나나 하나 빼기' }));
     await user.click(screen.getByRole('button', { name: '사과 담기' }));
     await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
-    expect(screen.getByText('고마워요! 사과 한 개, 딱 맞아요.')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '잘 골랐어요!' })).toHaveTextContent('고마워요! 사과 한 개, 딱 맞아요.');
     await user.click(screen.getByRole('button', { name: '다음 손님 오세요' }));
     expect(screen.getByLabelText('손님 5명 중 2번째')).toBeInTheDocument();
   });
@@ -51,7 +51,7 @@ describe('점원 놀이', () => {
   it('2번 통로로 가서 장난감도 고를 수 있습니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     await user.click(screen.getByRole('button', { name: '2번 통로 · 장난감·생활' }));
     expect(screen.getByRole('button', { name: '곰인형 담기' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '사과 담기' })).toBeNull();
@@ -61,7 +61,7 @@ describe('점원 놀이', () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
     await user.click(screen.getByRole('button', { name: /만 3세/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.queryByRole('button', { name: '2번 통로 · 장난감·생활' })).toBeNull();
   });
 });
@@ -164,7 +164,7 @@ describe('손님 놀이 (말하기)', () => {
 it('다섯 번 하면 끝 화면', async () => {
   const user = userEvent.setup();
   render(<App rng={zero} />);
-  await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+  await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
   for (let i = 0; i < 5; i++) {
     const want = screen.getByText(/주세요\.$/, { selector: '.line' }).textContent!;
     await user.click(screen.getByRole('button', { name: `${want.split(' ')[1]} 담기` }));
@@ -178,7 +178,7 @@ describe('유아 교육 관점 보완', () => {
   it('점원 놀이: 5~6세는 두 번 막히면 주문을 그림으로도 보여 줍니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     await user.click(screen.getByRole('button', { name: '바나나 담기' }));
     await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
     expect(screen.queryByLabelText(/주문 그림/)).toBeNull();
@@ -190,7 +190,7 @@ describe('유아 교육 관점 보완', () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
     await user.click(screen.getByRole('button', { name: /만 3세/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     await user.click(screen.getByRole('button', { name: '바나나 담기' }));
     await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
     expect(screen.getByLabelText(/주문 그림/)).toBeInTheDocument();
@@ -203,7 +203,7 @@ describe('유아 교육 관점 보완', () => {
   it('끝 화면은 한 일을 짚어 칭찬하고, 친구와 하는 진짜 놀이로 이어 줍니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     for (let i = 0; i < 5; i++) {
       await user.click(screen.getByRole('button', { name: '사과 담기' }));
       await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
@@ -212,5 +212,30 @@ describe('유아 교육 관점 보완', () => {
     }
     expect(screen.getByText(/물건을 하나씩 세어서 담았어요/)).toBeInTheDocument();
     expect(screen.getByText(/친구랑 진짜 가게 놀이/)).toBeInTheDocument();
+  });
+});
+
+describe('마을 첫 화면 (디자인 시안)', () => {
+  it('건물을 누르면 그 가게로 놀러 가고, 저장은 하지 않습니다', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    expect(screen.getByRole('heading', { name: '꼬마 역할놀이 마을' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '꼬마 빵집' }));
+    expect(screen.getByRole('heading', { name: '꼬마 빵집' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    expect(screen.getByText('꼬마 빵집', { selector: '.top-title' })).toBeInTheDocument();
+    expect(localStorage.getItem('kids-shop:v1')).toBeNull();
+  });
+
+  it('손님 기분 하트: 맞게 담을수록 차고, 맞히면 축하 화면', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    expect(screen.getByLabelText('손님 기분 하트 3개 중 1개')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '사과 담기' }));
+    expect(screen.getByLabelText('손님 기분 하트 3개 중 2개')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
+    expect(screen.getByRole('dialog', { name: '잘 골랐어요!' })).toBeInTheDocument();
+    expect(screen.queryByText(/스티커/)).toBeNull();
   });
 });

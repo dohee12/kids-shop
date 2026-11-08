@@ -42,13 +42,13 @@ describe('선생님 페이지', () => {
     expect(JSON.parse(localStorage.getItem(STORE_KEY)!).shops[0].items[0].name).toBe('자두');
 
     await back(user);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.getByText('안녕하세요! 자두 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '자두 담기' })).toBeInTheDocument();
 
     view.unmount();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.getByText('안녕하세요! 자두 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
   });
 
@@ -58,7 +58,7 @@ describe('선생님 페이지', () => {
     await user.click(screen.getByRole('button', { name: '저장하기' }));
     await back(user);
     expect(screen.getByRole('heading', { name: '꼬마 과일가게' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.getByText('꼬마 과일가게', { selector: '.top-title' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '딸기 담기' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '우유 담기' })).toBeNull();
@@ -69,7 +69,7 @@ describe('선생님 페이지', () => {
     await user.click(screen.getByLabelText('물건 1 보이기'));
     await user.click(screen.getByRole('button', { name: '저장하기' }));
     await back(user);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.queryByRole('button', { name: '사과 담기' })).toBeNull();
     expect(screen.getByText('안녕하세요! 바나나 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
   });
@@ -133,7 +133,7 @@ describe('선생님 페이지', () => {
     expect(guests.getByLabelText('펭귄')).toBeDisabled();
     await user.click(screen.getByRole('button', { name: '저장하기' }));
     await back(user);
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.getByLabelText('손님 3명 중 1번째')).toBeInTheDocument();
     expect(screen.getByText('펭귄 손님')).toBeInTheDocument();
   });
@@ -159,7 +159,7 @@ describe('선생님 페이지', () => {
     expect(JSON.parse(localStorage.getItem(STORE_KEY)!).micOn).toBe(false);
     await back(user);
     await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     expect(screen.queryByRole('button', { name: /눌러서 말하기/ })).toBeNull();
     expect(screen.getByText(/선생님 설정에서 마이크가 꺼져 있어요/)).toBeInTheDocument();
   });
