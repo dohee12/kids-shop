@@ -47,13 +47,14 @@ const tidy = (shops: Shop[]): Shop[] => shops.map(s => ({
 export default function Teacher({ store, draft: start, onSave, onClose, onPreview }: Props) {
   const [shops, setShops] = useState<Shop[]>(() => copy((start ?? store).shops));
   const [current, setCurrent] = useState((start ?? store).current);
+  const [micOn, setMicOn] = useState((start ?? store).micOn);
   const [note, setNote] = useState('');
   const [picFor, setPicFor] = useState<string | null>(null);
   const [paste, setPaste] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const shop = shops.find(s => s.id === current) ?? shops[0];
-  const draft = (): Store => ({ current: shop.id, shops: tidy(shops) });
+  const draft = (): Store => ({ current: shop.id, micOn, shops: tidy(shops) });
   const dirty = JSON.stringify(draft()) !== JSON.stringify(store);
   const problems = shops.flatMap(s => checkShop(s).map(p => (s.id === shop.id ? p : `「${s.name}」 ${p}`)));
   const stop = blocking(problems);
@@ -172,6 +173,15 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
           <ul>{problems.map(p => <li key={p}>{p}</li>)}</ul>
         </div>
       )}
+
+      <section className="t-card" aria-labelledby="t-play">
+        <h2 id="t-play">놀이 설정 <small>모든 주제에 똑같이 쓰여요</small></h2>
+        <label className="t-check big-check">
+          <input type="checkbox" checked={micOn} onChange={e => { setMicOn(e.target.checked); setNote(''); }} />
+          손님 놀이에서 마이크 쓰기
+        </label>
+        <p className="t-help">마이크를 켜면 말소리를 글자로 바꾸려고 브라우저 회사 서버(Google·Microsoft)로 소리가 보내져요. 이 앱은 소리와 글자를 저장하지 않아요. 끄면 아이가 말하고 선생님이 듣고 "선생님: 잘 말했어요"를 눌러 진행해요. 카메라는 쓰지 않아요.</p>
+      </section>
 
       <section className="t-card" aria-labelledby="t-themes">
         <h2 id="t-themes">놀이 주제 <small>누른 주제로 아이들이 놀아요</small></h2>

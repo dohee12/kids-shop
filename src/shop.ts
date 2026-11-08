@@ -7,10 +7,11 @@ import { BUILTIN, PIC_BY_NAME } from './themes';
 export const STORE_KEY = 'kids-shop:v1';
 export const LIMITS = { items: 40, aisles: 3, name: 20, greeting: 80, aliases: 8, photo: 200_000 } as const;
 
-export type Store = { current: string; shops: Shop[] };
+/** micOn: 손님 놀이에서 마이크 쓰기 (선생님 설정) */
+export type Store = { current: string; micOn: boolean; shops: Shop[] };
 
 const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
-export const defaultStore = (): Store => ({ current: 'super', shops: copy(BUILTIN) });
+export const defaultStore = (): Store => ({ current: 'super', micOn: true, shops: copy(BUILTIN) });
 
 function storage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -21,12 +22,12 @@ export function loadStore(): Store {
   try {
     const raw = storage()?.getItem(STORE_KEY);
     if (!raw) return defaultStore();
-    const data = JSON.parse(raw) as { current?: unknown; shops?: unknown };
+    const data = JSON.parse(raw) as { current?: unknown; micOn?: unknown; shops?: unknown };
     const shops = (Array.isArray(data.shops) ? data.shops : []).map(sanitizeShop).filter((s): s is Shop => s !== null);
     // 나중에 기본 주제가 늘어나면 뒤에 붙여 줍니다.
     for (const b of BUILTIN) if (!shops.some(s => s.id === b.id)) shops.push(copy(b));
     const current = shops.some(s => s.id === data.current) ? (data.current as string) : shops[0].id;
-    return { current, shops };
+    return { current, micOn: data.micOn !== false, shops };
   } catch {
     return defaultStore();
   }

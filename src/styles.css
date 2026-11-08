@@ -199,3 +199,6 @@ main { max-width: 1100px; margin: 0 auto; min-height: 100dvh; padding: 16px; dis
   .t-sep { display: none; }
   .t-field.small { flex: 1 1 90px; }
 }
+
+.teacher-entry { margin-top: 12px; color: var(--soft); background: transparent; border-style: dashed; border-color: #9CC9B3; }
+.big-check { font-size: 17px; font-weight: 700; }

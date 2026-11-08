@@ -12,7 +12,7 @@ afterEach(() => vi.restoreAllMocks());
 async function openTeacher() {
   const user = userEvent.setup();
   const view = render(<App rng={zero} />);
-  await user.click(screen.getByRole('button', { name: /선생님 페이지/ }));
+  await user.click(screen.getByRole('button', { name: '⚙ 선생님 설정' }));
   await user.type(screen.getByLabelText('6 더하기 5는 얼마인가요?'), '11');
   await user.click(screen.getByRole('button', { name: '들어가기' }));
   expect(screen.getByRole('heading', { name: '선생님 페이지' })).toBeInTheDocument();
@@ -24,7 +24,7 @@ describe('선생님 페이지', () => {
   it('덧셈을 틀리면 들어가지 못합니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: /선생님 페이지/ }));
+    await user.click(screen.getByRole('button', { name: '⚙ 선생님 설정' }));
     await user.type(screen.getByLabelText('6 더하기 5는 얼마인가요?'), '10');
     await user.click(screen.getByRole('button', { name: '들어가기' }));
     expect(screen.getByRole('alert')).toHaveTextContent('다시 계산해 볼까요?');
@@ -136,5 +136,23 @@ describe('선생님 페이지', () => {
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
     expect(screen.getByLabelText('손님 3명 중 1번째')).toBeInTheDocument();
     expect(screen.getByText('펭귄 손님')).toBeInTheDocument();
+  });
+
+  it('첫 화면에는 선생님 설정 버튼만 있고, 마이크 끄기는 선생님 페이지에서 저장합니다', async () => {
+    const user = userEvent.setup();
+    const view = render(<App rng={zero} />);
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByRole('button', { name: '⚙ 선생님 설정' })).toBeInTheDocument();
+    view.unmount();
+
+    await openTeacher();
+    await user.click(screen.getByLabelText('손님 놀이에서 마이크 쓰기'));
+    await user.click(screen.getByRole('button', { name: '저장하기' }));
+    expect(JSON.parse(localStorage.getItem(STORE_KEY)!).micOn).toBe(false);
+    await back(user);
+    await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
+    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    expect(screen.queryByRole('button', { name: /눌러서 말하기/ })).toBeNull();
+    expect(screen.getByText(/선생님 설정에서 마이크가 꺼져 있어요/)).toBeInTheDocument();
   });
 });

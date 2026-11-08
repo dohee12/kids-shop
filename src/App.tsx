@@ -18,9 +18,9 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   const active = preview ?? store;
   const shop = active.shops.find(s => s.id === active.current) ?? active.shops[0];
   const rounds = shop.rounds;
+  const micOn = active.micOn;
   const [mode, setMode] = useState<Mode>('clerk');
   const [age, setAge] = useState<Age>('5');
-  const [micOn, setMicOn] = useState(true);
   // 마이크 안내는 한 번 켜질 때까지 보여 줍니다. 저장하지 않으므로 새로 열면 다시 묻습니다.
   const [micAgreed, setMicAgreed] = useState(false);
   const [screen, setScreen] = useState<Screen>('start');
@@ -70,7 +70,7 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
           <button type="button" className="t-btn primary" onClick={() => setScreen('teacher')}>선생님 페이지로 돌아가기</button>
         </div>
       )}
-      <Start shop={shop} mode={mode} setMode={setMode} age={age} setAge={setAge} micOn={micOn} setMicOn={setMicOn}
+      <Start shop={shop} mode={mode} setMode={setMode} age={age} setAge={setAge}
         onStart={() => start()} onTeacher={() => setScreen(preview ? 'teacher' : 'gate')} />
     </>
   );
@@ -307,7 +307,7 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
                   ? <button type="button" className="mic on" onClick={stop}><span className="mic-dot" aria-hidden="true" />듣고 있어요…<small>다 말했으면 눌러요</small></button>
                   : <button type="button" className="mic" onClick={() => listen()} disabled={solved}>🎤 눌러서 말하기</button>
               ) : (
-                <p className="no-mic">{micOn ? '이 브라우저는 말을 알아듣지 못해요. Chrome이나 Edge로 열어 주세요.' : '마이크가 꺼져 있어요.'} 아이가 말하면 선생님이 듣고 아래 버튼을 눌러 주세요.</p>
+                <p className="no-mic">{micOn ? '이 브라우저는 말을 알아듣지 못해요. Chrome이나 Edge로 열어 주세요.' : '선생님 설정에서 마이크가 꺼져 있어요.'} 아이가 말하면 선생님이 듣고 아래 버튼을 눌러 주세요.</p>
               )}
               {heard && <p className="heard">내가 한 말: <q>{heard}</q></p>}
             </div>
@@ -324,8 +324,8 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
 
 // ── 첫 화면, 끝 화면 ──
 
-function Start({ shop, mode, setMode, age, setAge, micOn, setMicOn, onStart, onTeacher }: {
-  shop: Shop; mode: Mode; setMode: (m: Mode) => void; age: Age; setAge: (a: Age) => void; micOn: boolean; setMicOn: (v: boolean) => void;
+function Start({ shop, mode, setMode, age, setAge, onStart, onTeacher }: {
+  shop: Shop; mode: Mode; setMode: (m: Mode) => void; age: Age; setAge: (a: Age) => void;
   onStart: () => void; onTeacher: () => void;
 }) {
   const art = shownItems(shop).slice(0, 2);
@@ -354,12 +354,7 @@ function Start({ shop, mode, setMode, age, setAge, micOn, setMicOn, onStart, onT
         ))}
       </div>
       <button type="button" className="big go" onClick={onStart}>가게 문 열기</button>
-      <fieldset className="teacher">
-        <legend>선생님 설정</legend>
-        <label><input type="checkbox" checked={micOn} onChange={e => setMicOn(e.target.checked)} /> 손님 놀이에서 마이크 쓰기</label>
-        <p className="note">손님 {shop.rounds}명이 오면 한 판이 끝나요. 카메라는 쓰지 않고, 아이 정보는 저장하지 않아요. 마이크를 켜면 말소리를 글자로 바꾸려고 브라우저 회사 서버로 보내요.</p>
-        <button type="button" className="t-btn" onClick={onTeacher}>선생님 페이지 · 주제와 물건 바꾸기</button>
-      </fieldset>
+      <button type="button" className="t-btn teacher-entry" onClick={onTeacher}>⚙ 선생님 설정</button>
     </main>
   );
 }
