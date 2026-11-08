@@ -173,26 +173,36 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
 
   useEffect(() => { say(ask); return () => listening.current?.stop(); }, []);
 
-  const answer = (v: Verdict) => { setLine(v.say); setSolved(v.ok); say(v.say); };
-  const listen = () => {
-    if (!micAgreed) { setHearing('notice'); return; }
+  const misses = useRef(0);
+  const answer = (v: Verdict, counts = true) => {
+    // 두 번 넘게 막히면 점원이 먼저 말해 주고 따라 하게 합니다.
+    if (!v.ok && counts) misses.current += 1;
+    const text = !v.ok && counts && misses.current >= 2 ? `${v.say} 점원이 먼저 말해 볼게요. 따라 해 봐요. ${model}` : v.say;
+    setLine(text); setSolved(v.ok); say(text);
+  };
+  const listen = (agreed = micAgreed) => {
+    if (!agreed) { setHearing('notice'); return; }
     setHeard('');
     const l = recognizer.start({
       onInterim: t => setHeard(t),
       onFinal: alts => {
-        if (!alts.length) { answer({ ok: false, kind: 'unheard', say: '잘 못 들었어요. 한 번 더 크게 말해 볼까요?' }); return; }
+        if (!alts.length) { answer({ ok: false, kind: 'unheard', say: '잘 못 들었어요. 마이크 가까이에서 한 번 더 말해 볼까요?' }); return; }
         const verdicts = alts.map(a => ({ a, v: judgeSpoken(order, a, age) }));
         const best = verdicts.find(x => x.v.ok) ?? verdicts[0];
         setHeard(best.a);
         answer(best.v);
       },
       onError: code => {
-        if (code === 'not-allowed' || code === 'service-not-allowed') answer({ ok: false, kind: 'blocked', say: '마이크를 쓸 수 없어요. 선생님, 브라우저에서 마이크를 허락해 주세요.' });
-        else if (code === 'network') answer({ ok: false, kind: 'network', say: '인터넷이 연결되지 않아 말을 못 알아들었어요. 선생님이 듣고 눌러 주세요.' });
+        const say = code === 'not-allowed' || code === 'service-not-allowed' ? '마이크를 쓸 수 없어요. 선생님, 주소창 옆 자물쇠를 눌러 마이크를 허용해 주세요.'
+          : code === 'audio-capture' ? '마이크를 찾을 수 없어요. 선생님, 마이크가 연결되어 있는지 봐 주세요.'
+          : code === 'network' ? '인터넷이 연결되지 않아 말을 못 알아들었어요. 선생님이 듣고 눌러 주세요.'
+          : '말 알아듣기가 잠깐 멈췄어요. 다시 눌러 볼까요?';
+        answer({ ok: false, kind: code, say }, false);
       },
       onEnd: () => { listening.current = null; setHearing('idle'); },
     });
     if (l) { listening.current = l; setHearing('listening'); }
+    else answer({ ok: false, kind: 'start-failed', say: '마이크를 켜지 못했어요. 다시 눌러 볼까요?' }, false);
   };
   const stop = () => listening.current?.stop();
   const teacherOk = () => answer({ ok: true, kind: 'teacher', say: `네! ${order.lines.map(l => `${l.item.name} ${countWord(l.count)} 개`).join(', ')} 드릴게요.` });
@@ -228,7 +238,7 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
               <p><b>선생님 확인</b></p>
               <p>말소리를 글자로 바꾸려고 브라우저 회사 서버(Google·Microsoft)로 소리가 보내져요. 이 앱은 소리와 글자를 저장하지 않아요.</p>
               <div className="notice-btns">
-                <button type="button" className="big go small-big" onClick={() => { onAgree(); setHearing('idle'); }}>알겠어요, 마이크 켜기</button>
+                <button type="button" className="big go small-big" onClick={() => { onAgree(); setHearing('idle'); listen(true); }}>알겠어요, 마이크 켜기</button>
                 <button type="button" className="link" onClick={() => setHearing('idle')}>취소</button>
               </div>
             </div>
@@ -237,7 +247,7 @@ function CustomerPlay({ top, order, age, last, onNext, recognizer, micOn, micAgr
               {canHear ? (
                 hearing === 'listening'
                   ? <button type="button" className="mic on" onClick={stop}><span className="mic-dot" aria-hidden="true" />듣고 있어요…<small>다 말했으면 눌러요</small></button>
-                  : <button type="button" className="mic" onClick={listen} disabled={solved}>🎤 눌러서 말하기</button>
+                  : <button type="button" className="mic" onClick={() => listen()} disabled={solved}>🎤 눌러서 말하기</button>
               ) : (
                 <p className="no-mic">{micOn ? '이 브라우저는 말을 알아듣지 못해요. Chrome이나 Edge로 열어 주세요.' : '마이크가 꺼져 있어요.'} 아이가 말하면 선생님이 듣고 아래 버튼을 눌러 주세요.</p>
               )}

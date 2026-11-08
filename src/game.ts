@@ -15,19 +15,19 @@ export const ITEMS: Item[] = [
   { id: 'apple', name: '사과', aisle: 'food', shelf: '과일·채소·달걀' },
   { id: 'banana', name: '바나나', aisle: 'food', shelf: '과일·채소·달걀' },
   { id: 'carrot', name: '당근', aisle: 'food', shelf: '과일·채소·달걀' },
-  { id: 'egg', name: '달걀', aisle: 'food', shelf: '과일·채소·달걀', aliases: ['계란'] },
+  { id: 'egg', name: '달걀', aisle: 'food', shelf: '과일·채소·달걀', aliases: ['계란', '달걀이', '닭알'] },
   { id: 'milk', name: '우유', aisle: 'food', shelf: '우유·빵·간식' },
   { id: 'bread', name: '식빵', aisle: 'food', shelf: '우유·빵·간식', aliases: ['빵'] },
   { id: 'cookie', name: '쿠키', aisle: 'food', shelf: '우유·빵·간식', aliases: ['과자'] },
   { id: 'juice', name: '주스', aisle: 'food', shelf: '우유·빵·간식', aliases: ['쥬스'] },
   { id: 'ball', name: '공', aisle: 'toy', shelf: '장난감·문구' },
-  { id: 'crayon', name: '크레파스', aisle: 'toy', shelf: '장난감·문구', aliases: ['크레용'] },
-  { id: 'bear', name: '곰인형', aisle: 'toy', shelf: '장난감·문구', aliases: ['곰돌이인형', '인형'] },
-  { id: 'block', name: '블록', aisle: 'toy', shelf: '장난감·문구', aliases: ['블럭'] },
-  { id: 'toothbrush', name: '칫솔', aisle: 'toy', shelf: '생활용품' },
+  { id: 'crayon', name: '크레파스', aisle: 'toy', shelf: '장난감·문구', aliases: ['크레용', '크레파쓰', '그레파스'] },
+  { id: 'bear', name: '곰인형', aisle: 'toy', shelf: '장난감·문구', aliases: ['곰돌이인형', '곰돌이', '인형', '곰인영'] },
+  { id: 'block', name: '블록', aisle: 'toy', shelf: '장난감·문구', aliases: ['블럭', '레고'] },
+  { id: 'toothbrush', name: '칫솔', aisle: 'toy', shelf: '생활용품', aliases: ['치솔', '칫솔이'] },
   { id: 'soap', name: '비누', aisle: 'toy', shelf: '생활용품' },
-  { id: 'tissue', name: '휴지', aisle: 'toy', shelf: '생활용품', aliases: ['화장지'] },
-  { id: 'towel', name: '수건', aisle: 'toy', shelf: '생활용품' },
+  { id: 'tissue', name: '휴지', aisle: 'toy', shelf: '생활용품', aliases: ['화장지', '티슈'] },
+  { id: 'towel', name: '수건', aisle: 'toy', shelf: '생활용품', aliases: ['타월', '타올'] },
 ];
 
 export const CUSTOMERS = [
@@ -120,8 +120,17 @@ export function judge(order: Order, tray: Tray): Verdict {
 // ── 손님 놀이: 아이가 말한 문장 알아듣기 ──
 
 const NUM: Record<string, number> = { 하나: 1, 한: 1, 둘: 2, 두: 2, 셋: 3, 세: 3, 석: 3, 넷: 4, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10 };
-const NUM_RE = /^(\d+|하나|한|둘|두|셋|세|석|넷|네|다섯|여섯|일곱|여덟|아홉|열)/;
-const norm = (s: string) => s.replace(/[\s.,!?~]/g, '');
+const UNIT = '(?:개|병|봉지|송이|자루|장|통)';
+// "한·두·세·네"는 단위가 붙어야 개수로 봅니다 ("사과네요"의 "네"를 4로 읽지 않게).
+const WITH_UNIT = `(\\d+|한|두|세|석|네|다섯|여섯|일곱|여덟|아홉|열)${UNIT}`;
+const ALONE = '(\\d+|하나|둘|셋|넷|다섯|여섯|일곱|여덟|아홉|열)';
+// 물건 이름 뒤: "우유를 두 개", "우유도 하나", "우유 좀 두 개", "우유 2개", "사과 둘이요"
+const NUM_AFTER = new RegExp(`^(?:을|를|은|는|이|가|도|만)?(?:좀)?(?:${WITH_UNIT}|${ALONE})`);
+// 물건 이름 앞: "두 개 우유 주세요"
+const NUM_BEFORE = new RegExp(`(?:${WITH_UNIT}|${ALONE})(?:의|짜리)?$`);
+const CORRECTION = new RegExp(`아니(?:요|야)?(?:${WITH_UNIT}|${ALONE})`);
+const toNum =(m: RegExpMatchArray | null) => { const w = m?.[1] ?? m?.[2]; return w == null ? null : (NUM[w] ?? Number(w)); };
+const norm = (s: string) => s.replace(/[\s.,!?~"'“”]/g, '');
 
 /** 말한 문장에서 물건과 개수를 찾습니다. 개수를 말하지 않았으면 null. */
 export function parseSpoken(text: string, items: readonly Item[] = ITEMS): Map<string, number | null> {
@@ -136,12 +145,19 @@ export function parseSpoken(text: string, items: readonly Item[] = ITEMS): Map<s
   hits.sort((a, b) => a.start - b.start || b.end - a.end);
   const kept = hits.filter((h, i) => !hits.slice(0, i).some(k => k.start <= h.start && h.end <= k.end && k !== h));
   const found = new Map<string, number | null>();
+  let lastUsedAfter = true; // 바로 앞 물건이 뒤쪽 개수를 가져갔는지
   kept.forEach((h, i) => {
     const seg = said.slice(h.end, kept[i + 1]?.start ?? said.length);
-    const m = seg.match(NUM_RE);
-    const n = m ? (NUM[m[1]] ?? Number(m[1])) : null;
-    const before = found.get(h.id);
-    found.set(h.id, n == null ? (before ?? null) : (before ?? 0) + n);
+    let n = toNum(seg.match(NUM_AFTER));
+    // 고쳐 말하기: "우유 세 개 아니 두 개" → 두 개
+    const fixed = n != null ? seg.match(CORRECTION) : null;
+    if (fixed) n = toNum(fixed);
+    const usedAfter = n != null;
+    // 뒤에 개수가 없으면 앞쪽을 봅니다. 앞 물건이 이미 가져간 개수는 쓰지 않습니다.
+    if (n == null && !(i > 0 && lastUsedAfter)) n = toNum(said.slice(kept[i - 1]?.end ?? 0, h.start).match(NUM_BEFORE));
+    lastUsedAfter = usedAfter;
+    // 같은 물건을 되풀이해 말하면("우유 두 개, 우유 두 개") 더하지 않고 마지막에 말한 개수를 씁니다.
+    if (n != null || !found.has(h.id)) found.set(h.id, n ?? found.get(h.id) ?? null);
   });
   return found;
 }

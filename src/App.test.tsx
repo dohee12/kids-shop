@@ -12,11 +12,21 @@ function fakeMic() {
   const mic = { handlers: null as ListenHandlers | null, starts: 0 };
   const recognizer: Recognizer = {
     available: true,
-    start: h => { mic.handlers = h; mic.starts++; return { stop: () => h.onEnd() }; },
+    start: h => { mic.handlers = h; mic.starts++; return { stop: () => { h.onFinal([]); h.onEnd(); } }; },
   };
   const speak = (...alts: string[]) => act(() => { mic.handlers!.onFinal(alts); mic.handlers!.onEnd(); });
-  return { mic, recognizer, speak };
+  const fail = (code: string) => act(() => { mic.handlers!.onError(code); mic.handlers!.onEnd(); });
+  return { mic, recognizer, speak, fail };
 }
+
+async function openCustomer(recognizer: Recognizer) {
+  const user = userEvent.setup();
+  render(<App rng={zero} recognizer={recognizer} />);
+  await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
+  await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+  return user;
+}
+const line = () => document.querySelector('.line')!.textContent;
 
 describe('점원 놀이', () => {
   it('주문을 듣고 고르고, 틀리면 도와주고, 맞으면 다음 손님', async () => {
@@ -57,69 +67,97 @@ describe('점원 놀이', () => {
 });
 
 describe('손님 놀이 (말하기)', () => {
-  it('처음 마이크를 누르면 선생님 안내 → 켜고 말하면 알아듣고 칭찬', async () => {
-    const user = userEvent.setup();
+  it('처음엔 선생님 안내 → "마이크 켜기"를 누르면 바로 듣기 시작 → 알아듣고 칭찬', async () => {
     const { mic, recognizer, speak } = fakeMic();
-    render(<App rng={zero} recognizer={recognizer} />);
-    await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    const user = await openCustomer(recognizer);
     expect(screen.getByText('이 물건을 주문해 보세요')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     expect(screen.getByRole('dialog', { name: '마이크 안내' })).toBeInTheDocument();
     expect(mic.starts).toBe(0);
     await user.click(screen.getByRole('button', { name: '알겠어요, 마이크 켜기' }));
-
-    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     expect(mic.starts).toBe(1);
     expect(screen.getByRole('button', { name: /듣고 있어요/ })).toBeInTheDocument();
-    speak('바나나 주세요');
-    expect(screen.getByText('바나나는 그림에 없어요. 그림을 다시 볼까요?', { selector: '.line' })).toBeInTheDocument();
-    expect(screen.getByText('바나나 주세요', { selector: 'q' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
-    speak('사과 한 개 주세요');
-    expect(screen.getByText('네! 사과 한 개 드릴게요.', { selector: '.line' })).toBeInTheDocument();
+    act(() => mic.handlers!.onInterim('사과를'));
+    expect(screen.getByText('사과를', { selector: 'q' })).toBeInTheDocument();
+    speak('사과를 한 개 주세요');
+    expect(line()).toBe('네! 사과 한 개 드릴게요.');
+    expect(screen.getByText('사과를 한 개 주세요', { selector: 'q' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /눌러서 말하기/ })).toBeDisabled();
+
     await user.click(screen.getByRole('button', { name: '다음 물건 사러 가요' }));
     expect(screen.getByLabelText('손님 5명 중 2번째')).toBeInTheDocument();
     // 두 번째부터는 안내 없이 바로 듣습니다
     await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
-    expect(mic.starts).toBe(3);
+    expect(mic.starts).toBe(2);
+  });
+
+  it('틀리면 고칠 점을 말하고, 두 번 막히면 점원이 먼저 본보기를 말해 줍니다', async () => {
+    const { recognizer, speak } = fakeMic();
+    const user = await openCustomer(recognizer);
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    await user.click(screen.getByRole('button', { name: '알겠어요, 마이크 켜기' }));
+    speak('바나나 주세요');
+    expect(line()).toBe('바나나는 그림에 없어요. 그림을 다시 볼까요?');
+
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    speak('음 이거요');
+    expect(line()).toBe('어떤 물건을 드릴까요? 그림을 보고 이름을 말해 봐요. 점원이 먼저 말해 볼게요. 따라 해 봐요. 사과 한 개 주세요.');
+
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    speak('사과 한 개 주세요');
+    expect(line()).toBe('네! 사과 한 개 드릴게요.');
   });
 
   it('여러 후보 중 맞는 문장을 고릅니다', async () => {
-    const user = userEvent.setup();
     const { recognizer, speak } = fakeMic();
-    render(<App rng={zero} recognizer={recognizer} />);
-    await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+    const user = await openCustomer(recognizer);
     await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     await user.click(screen.getByRole('button', { name: '알겠어요, 마이크 켜기' }));
-    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     speak('사가 한 개 주세요', '사과 한 개 주세요');
-    expect(screen.getByText('네! 사과 한 개 드릴게요.', { selector: '.line' })).toBeInTheDocument();
+    expect(line()).toBe('네! 사과 한 개 드릴게요.');
   });
 
-  it('못 알아들으면 다시 말하게 하고, 마이크가 없으면 선생님 버튼으로 진행', async () => {
-    const user = userEvent.setup();
-    const { recognizer, speak } = fakeMic();
-    const { unmount } = render(<App rng={zero} recognizer={recognizer} />);
-    await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+  it('"다 말했어요"를 누르면 듣기를 멈춥니다', async () => {
+    const { recognizer } = fakeMic();
+    const user = await openCustomer(recognizer);
     await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
     await user.click(screen.getByRole('button', { name: '알겠어요, 마이크 켜기' }));
-    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
-    speak();
-    expect(screen.getByText('잘 못 들었어요. 한 번 더 크게 말해 볼까요?', { selector: '.line' })).toBeInTheDocument();
-    unmount();
+    await user.click(screen.getByRole('button', { name: /듣고 있어요/ }));
+    expect(screen.getByRole('button', { name: /눌러서 말하기/ })).toBeEnabled();
+    expect(line()).toBe('잘 못 들었어요. 마이크 가까이에서 한 번 더 말해 볼까요?');
+  });
 
-    render(<App rng={zero} recognizer={{ available: false, start: () => null }} />);
-    await user.click(screen.getByRole('button', { name: /내가 손님이에요/ }));
-    await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
+  it('마이크 오류는 이유를 알려 주고, 틀린 횟수로 세지 않습니다', async () => {
+    const { recognizer, fail, speak } = fakeMic();
+    const user = await openCustomer(recognizer);
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    await user.click(screen.getByRole('button', { name: '알겠어요, 마이크 켜기' }));
+    fail('not-allowed');
+    expect(line()).toContain('마이크를 허용해 주세요');
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    fail('audio-capture');
+    expect(line()).toContain('마이크가 연결되어 있는지');
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    speak('바나나 주세요');
+    expect(line()).toBe('바나나는 그림에 없어요. 그림을 다시 볼까요?'); // 본보기가 아직 붙지 않음
+  });
+
+  it('마이크를 켜지 못하면 다시 누르라고 합니다', async () => {
+    await openCustomer({ available: true, start: () => null }).then(async user => {
+      await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+      await user.click(screen.getByRole('button', { name: '알겠어요, 마이크 켜기' }));
+    });
+    expect(line()).toBe('마이크를 켜지 못했어요. 다시 눌러 볼까요?');
+  });
+
+  it('음성 인식이 없는 브라우저는 선생님 버튼으로 진행', async () => {
+    const user = await openCustomer({ available: false, start: () => null });
     expect(screen.queryByRole('button', { name: /눌러서 말하기/ })).toBeNull();
     expect(screen.getByText(/Chrome이나 Edge로 열어 주세요/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '선생님: 잘 말했어요' }));
-    expect(screen.getByText('네! 사과 한 개 드릴게요.', { selector: '.line' })).toBeInTheDocument();
+    expect(line()).toBe('네! 사과 한 개 드릴게요.');
   });
 });
 

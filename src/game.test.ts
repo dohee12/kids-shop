@@ -60,6 +60,35 @@ describe('손님 놀이: 말 알아듣기', () => {
     expect(n('식빵 주세요')).toEqual({ bread: null });
   });
   it('"주세요"의 "세"를 개수로 읽지 않습니다', () => expect(n('공 주세요')).toEqual({ ball: null }));
+
+  // 아이들이 실제로 할 법한 말과, 음성 인식이 흔히 내놓는 표기
+  const cases: [string, Record<string, number | null>][] = [
+    ['우유를 두 개 주세요', { milk: 2 }],
+    ['우유 두개 주세요.', { milk: 2 }],
+    ['우유가 두 개요', { milk: 2 }],
+    ['우유도 하나 주세요', { milk: 1 }],
+    ['우유 좀 두 개 주세요', { milk: 2 }],
+    ['사과 둘이요', { apple: 2 }],
+    ['사과 하나랑 우유 둘', { apple: 1, milk: 2 }],
+    ['사과 하나하고 우유 두 개', { apple: 1, milk: 2 }],
+    ['두 개 우유 주세요', { milk: 2 }],
+    ['우유 두 개 사과 한 개', { milk: 2, apple: 1 }],
+    ['우유 2개랑 사과 1개 주세요', { milk: 2, apple: 1 }],
+    ['우유 두 개 우유 두 개 주세요', { milk: 2 }],
+    ['우유 세 개 아니 두 개', { milk: 2 }],
+    ['식빵 한 봉지 주세요', { bread: 1 }],
+    ['바나나 다섯 개', { banana: 5 }],
+    ['사과네요', { apple: null }],
+    ['치솔 두 개 주세요', { toothbrush: 2 }],
+    ['곰돌이 하나', { bear: 1 }],
+    ['곰돌이 인형 세 개', { bear: 3 }],
+    ['레고 네 개요', { block: 4 }],
+    ['티슈 하나', { tissue: 1 }],
+    ['쥬스 두 병 주세요', { juice: 2 }],
+    ['선생님 저 공 하나 주세요', { ball: 1 }],
+    ['네 우유 두 개요', { milk: 2 }],
+  ];
+  for (const [text, want] of cases) it(`"${text}"`, () => expect(n(text)).toEqual(want));
 });
 
 describe('손님 놀이: 점원이 할 말', () => {
