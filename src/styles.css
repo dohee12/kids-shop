@@ -200,7 +200,8 @@ main { max-width: 1100px; margin: 0 auto; min-height: 100dvh; padding: 16px; dis
   .t-field.small { flex: 1 1 90px; }
 }
 
-.teacher-entry { margin-top: 12px; color: var(--soft); background: transparent; border-style: dashed; border-color: #9CC9B3; }
+/* 선생님 버튼: 아이 놀이 영역 밖, 맨 위 오른쪽 구석에 따로 한 줄 (차양 위) */
+.teacher-entry { order: -1; align-self: flex-end; margin-bottom: -8px; min-height: 44px; padding: 6px 12px; border: 1px solid #C9D3DC; border-radius: 10px; background: rgba(255,255,255,.7); color: #5B6775; font-size: 14px; cursor: pointer; }
 .big-check { font-size: 17px; font-weight: 700; }
 
 .t-voice { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 12px 0 4px; }

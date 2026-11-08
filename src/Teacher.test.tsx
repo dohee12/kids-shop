@@ -43,13 +43,13 @@ describe('선생님 페이지', () => {
 
     await back(user);
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
-    expect(screen.getByText('자두 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
+    expect(screen.getByText('안녕하세요! 자두 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '자두 담기' })).toBeInTheDocument();
 
     view.unmount();
     render(<App rng={zero} />);
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
-    expect(screen.getByText('자두 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
+    expect(screen.getByText('안녕하세요! 자두 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
   });
 
   it('주제를 바꾸면 제목·물건·세는 말이 바뀝니다', async () => {
@@ -71,7 +71,7 @@ describe('선생님 페이지', () => {
     await back(user);
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
     expect(screen.queryByRole('button', { name: '사과 담기' })).toBeNull();
-    expect(screen.getByText('바나나 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
+    expect(screen.getByText('안녕하세요! 바나나 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
   });
 
   it('물건을 추가하고 그림을 고를 수 있습니다', async () => {

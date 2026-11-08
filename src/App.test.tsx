@@ -33,7 +33,7 @@ describe('점원 놀이', () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
-    expect(screen.getByText('사과 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
+    expect(screen.getByText('안녕하세요! 사과 한 개 주세요.', { selector: '.line' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '손님께 드리기' })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: '바나나 담기' }));
@@ -167,7 +167,7 @@ it('다섯 번 하면 끝 화면', async () => {
   await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
   for (let i = 0; i < 5; i++) {
     const want = screen.getByText(/주세요\.$/, { selector: '.line' }).textContent!;
-    await user.click(screen.getByRole('button', { name: `${want.split(' ')[0]} 담기` }));
+    await user.click(screen.getByRole('button', { name: `${want.split(' ')[1]} 담기` }));
     await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
     await user.click(screen.getByRole('button', { name: i < 4 ? '다음 손님 오세요' : '오늘 가게 놀이 끝!' }));
   }

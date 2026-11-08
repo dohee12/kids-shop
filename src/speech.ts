@@ -15,11 +15,36 @@ const synthOf = () => (typeof window !== 'undefined' ? window.speechSynthesis : 
 export const voiceScore = (v: Pick<SpeechSynthesisVoice, 'name' | 'localService'>) =>
   (/natural/i.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 3 : 0) + (v.localService ? 0 : 1);
 
+// 브라우저는 목소리 목록을 나눠서 채웁니다 (기기 목소리 먼저, 인터넷 목소리는 조금 뒤).
+// 잠깐 빈 목록을 돌려줄 때도 있어서, 마지막으로 받은 목록을 기억해 둡니다.
+let lastKnown: SpeechSynthesisVoice[] = [];
+
 /** 한국어 목소리, 자연스러운 것부터 */
 export function koreanVoices(): SpeechSynthesisVoice[] {
   const synth = synthOf();
   if (!synth) return [];
-  return synth.getVoices().filter(v => /^ko/i.test(v.lang)).sort((a, b) => voiceScore(b) - voiceScore(a));
+  const now = synth.getVoices().filter(v => /^ko/i.test(v.lang)).sort((a, b) => voiceScore(b) - voiceScore(a));
+  if (now.length) lastKnown = now;
+  return now.length ? now : lastKnown;
+}
+
+// "자동"일 때 한 번 고른 목소리를 계속 씁니다. 말할 때마다 다시 고르면
+// 목록이 늦게 채워지거나 잠깐 비는 순간에 다른 목소리로 바뀌어 들립니다.
+let autoName = '';
+/** 시험용: 기억해 둔 목소리를 지웁니다. */
+export const resetVoiceMemory = () => { autoName = ''; lastKnown = []; last = { text: '', at: 0 }; };
+
+/** 이번에 쓸 목소리: 선생님이 고른 것 → 처음에 자동으로 고른 것 → 가장 자연스러운 것 */
+export function pickVoice(p: VoicePrefs = prefs): SpeechSynthesisVoice | undefined {
+  const voices = koreanVoices();
+  const chosen = p.name ? voices.find(v => v.name === p.name) : undefined;
+  if (chosen) return chosen;
+  const best = voices[0];
+  const kept = voices.find(v => v.name === autoName);
+  // 기계음으로 시작했는데 나중에 자연스러운 목소리가 생기면 그때 한 번만 바꿉니다.
+  const voice = kept && !(best && voiceScore(kept) < 3 && voiceScore(best) >= 3) ? kept : best;
+  if (voice) autoName = voice.name;
+  return voice;
 }
 
 /** 목록에 보여 줄 이름: "Microsoft SunHi Online (Natural) - Korean (Korea)" → "SunHi · 자연스러운 목소리 (인터넷 필요)" */
@@ -29,21 +54,40 @@ export function voiceLabel(v: Pick<SpeechSynthesisVoice, 'name' | 'localService'
   return `${base} · ${tag}${v.localService ? '' : ' (인터넷 필요)'}`;
 }
 
+let waiting: ReturnType<typeof setTimeout> | undefined;
+let last = { text: '', at: 0 };
+
 export function say(text: string, p: VoicePrefs = prefs): void {
   const synth = synthOf();
   if (!synth || typeof SpeechSynthesisUtterance === 'undefined') return;
+  // 같은 문장을 눈 깜짝할 사이에 또 부르면(화면이 두 번 그려질 때) 끊고 다시 읽지 않습니다.
+  // 끊었다 바로 다시 읽으면 브라우저가 목소리를 바꿔 읽는 일이 있습니다.
+  const now = Date.now();
+  if (text === last.text && now - last.at < 400) return;
+  last = { text, at: now };
   synth.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ko-KR';
-  u.rate = p.rate;
-  u.pitch = p.pitch;
-  const voices = koreanVoices();
-  const voice = voices.find(v => v.name === p.name) ?? voices[0];
-  if (voice) u.voice = voice;
-  synth.speak(u);
+  clearTimeout(waiting);
+  const speak = () => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ko-KR';
+    u.rate = p.rate;
+    u.pitch = p.pitch;
+    const voice = pickVoice(p);
+    if (voice) u.voice = voice;
+    synth.speak(u);
+  };
+  // 목록이 아직 비어 있으면 브라우저 기본 목소리로 말해 버리므로, 목록이 올 때까지 잠깐(최대 1.5초) 기다립니다.
+  if (koreanVoices().length) { speak(); return; }
+  const started = Date.now();
+  const tryLater = () => {
+    if (koreanVoices().length || Date.now() - started > 1500) speak();
+    else waiting = setTimeout(tryLater, 100);
+  };
+  waiting = setTimeout(tryLater, 100);
 }
 
 export function hush(): void {
+  clearTimeout(waiting);
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
 }
 

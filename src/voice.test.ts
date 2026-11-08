@@ -1,6 +1,6 @@
 // 목소리 고르기: 브라우저 목소리 목록을 흉내 내어 시험합니다.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_VOICE, koreanVoices, say, setVoice, voiceLabel } from './speech';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_VOICE, koreanVoices, resetVoiceMemory, say, setVoice, voiceLabel } from './speech';
 import { cleanVoice, defaultStore, loadStore, saveStore } from './shop';
 
 const V = (name: string, lang: string, localService: boolean) => ({ name, lang, localService, default: false, voiceURI: name });
@@ -12,17 +12,21 @@ const LIST = [
   V('Microsoft InJoon Online (Natural) - Korean (Korea)', 'ko-KR', false),
 ];
 let spoken: { text: string; voice?: { name: string }; rate: number; pitch: number }[] = [];
+let list: typeof LIST = LIST;
 
 beforeEach(() => {
   spoken = [];
   (globalThis as Record<string, unknown>).SpeechSynthesisUtterance = class { voice?: unknown; rate = 1; pitch = 1; lang = ''; constructor(public text: string) {} };
   Object.defineProperty(window, 'speechSynthesis', {
     configurable: true,
-    value: { getVoices: () => LIST, cancel() {}, speak: (u: (typeof spoken)[number]) => spoken.push(u) },
+    value: { getVoices: () => list, cancel() {}, speak: (u: (typeof spoken)[number]) => spoken.push(u) },
   });
 });
 afterEach(() => {
   setVoice(DEFAULT_VOICE);
+  resetVoiceMemory();
+  list = LIST;
+  vi.useRealTimers();
   delete (window as unknown as Record<string, unknown>).speechSynthesis;
   delete (globalThis as Record<string, unknown>).SpeechSynthesisUtterance;
 });
@@ -56,6 +60,46 @@ describe('목소리', () => {
     setVoice({ name: '다른 기기 목소리', rate: 1, pitch: 1 });
     say('공 주세요');
     expect(spoken[0].voice?.name).toContain('SunHi');
+  });
+});
+
+describe('목소리가 바뀌지 않게', () => {
+  it('목록이 잠깐 비어도 처음 목소리로 계속 말합니다', () => {
+    say('하나');
+    list = [];
+    say('둘');
+    expect(spoken.map(u => u.voice?.name)).toEqual([spoken[0].voice?.name, spoken[0].voice?.name]);
+    expect(spoken[0].voice?.name).toContain('SunHi');
+  });
+  it('같은 문장을 곧바로 두 번 부르면 한 번만 읽습니다 (끊고 다시 읽지 않기)', () => {
+    say('어서 오세요');
+    say('어서 오세요');
+    expect(spoken).toHaveLength(1);
+  });
+  it('목록 순서가 바뀌어도 자동으로 고른 목소리를 그대로 씁니다', () => {
+    say('하나');
+    list = [LIST[4], LIST[3], LIST[2], LIST[0]]; // InJoon 이 앞으로 와도
+    say('둘');
+    expect(spoken[1].voice?.name).toBe(spoken[0].voice?.name);
+  });
+  it('목록이 아직 없으면 기본 목소리로 말하지 않고 목록이 올 때까지 기다립니다', () => {
+    vi.useFakeTimers();
+    list = [];
+    say('어서 오세요');
+    expect(spoken).toHaveLength(0);
+    list = LIST;
+    vi.advanceTimersByTime(150);
+    expect(spoken).toHaveLength(1);
+    expect(spoken[0].voice?.name).toContain('SunHi');
+  });
+  it('기계음만 있다가 자연스러운 목소리가 생기면 한 번만 바꾸고 그 뒤로는 그대로', () => {
+    list = [LIST[0]];
+    say('하나');
+    list = LIST;
+    say('둘');
+    list = [LIST[4], LIST[3], LIST[0]];
+    say('셋');
+    expect(spoken.map(u => u.voice?.name.split(' ')[1])).toEqual(['Heami', 'SunHi', 'SunHi']);
   });
 });
 

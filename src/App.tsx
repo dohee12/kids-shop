@@ -135,10 +135,12 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   const [tray, setTray] = useState<Tray>({});
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const line = orderText(order);
+  // 손님은 인사하고 주문합니다. 들리는 말과 말풍선 글자를 똑같이 맞춥니다.
+  const hello = `안녕하세요! ${line}`;
   const solved = verdict?.ok === true;
   const total = Object.values(tray).reduce((a, b) => a + b, 0);
 
-  useEffect(() => { say(`안녕하세요! ${line}`); }, [line]);
+  useEffect(() => { say(hello); }, [hello]);
 
   const put = (id: string) => { if (!solved) { setTray({ ...tray, [id]: (tray[id] ?? 0) + 1 }); setVerdict(null); } };
   const takeOut = (id: string) => {
@@ -184,8 +186,8 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
         <section className="side">
           <div className="person">
             <Animal id={order.customer.id} size={96} happy={solved} />
-            <Bubble who={`${order.customer.name} 손님`} line={verdict ? verdict.say : line} sub={verdict && !solved ? `주문: ${line}` : undefined}
-              onListen={() => say(verdict ? verdict.say : line)} />
+            <Bubble who={`${order.customer.name} 손님`} line={verdict ? verdict.say : hello} sub={verdict && !solved ? `주문: ${line}` : undefined}
+              onListen={() => say(verdict ? verdict.say : hello)} />
           </div>
           <div className="basket" aria-label="장바구니">
             <p className="basket-title">🧺 장바구니</p>
@@ -355,7 +357,8 @@ function Start({ shop, mode, setMode, age, setAge, onStart, onTeacher }: {
         ))}
       </div>
       <button type="button" className="big go" onClick={onStart}>가게 문 열기</button>
-      <button type="button" className="t-btn teacher-entry" onClick={onTeacher}>⚙ 선생님 설정</button>
+      {/* 선생님 버튼은 아이가 누르는 곳(놀이 고르기·나이·문 열기)에서 떨어진 오른쪽 위 구석에 작게 둡니다. */}
+      <button type="button" className="teacher-entry sans" onClick={onTeacher}>⚙ 선생님 설정</button>
     </main>
   );
 }
