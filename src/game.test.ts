@@ -40,8 +40,8 @@ describe('점원 놀이: 장바구니 보기', () => {
     expect(judge(o, { soap: 1 }).say).toBe('비누는 안 시켰어요. 우유랑 사과를 찾아볼까요?');
   });
   it('모자라거나 많으면', () => {
-    expect(judge(o, { milk: 1, apple: 1 }).say).toBe('사과가 한 개밖에 없어요. 한 개 더 주세요.');
-    expect(judge(o, { milk: 3, apple: 2 }).say).toBe('우유가 많아요. 두 개 빼 주세요.');
+    expect(judge(o, { milk: 1, apple: 1 }).say).toBe('사과를 같이 세어 볼까요? 하나. 한 개예요. 손님은 두 개 달라고 했어요. 한 개 더 담아 볼까요?');
+    expect(judge(o, { milk: 3, apple: 2 }).say).toBe('우유를 같이 세어 볼까요? 하나, 둘, 셋. 세 개예요. 손님은 한 개 달라고 했어요. 두 개 빼 볼까요?');
   });
 });
 
@@ -125,3 +125,12 @@ describe('자연스러운 조사', () => {
     expect(judge(order(['milk', 1], ['apple', 2]), { milk: 1 }).say).toBe('사과는 아직 없어요. 두 개 담아 주세요.');
   });
 });
+
+describe('같이 세어 주는 피드백 (설명형)', () => {
+  it('받침 있는 세는 말은 "이에요"', () => {
+    const juice = { ...ITEMS[7], unit: '병' };
+    const o2 = { customer: CUSTOMERS[0], lines: [{ item: juice, count: 3 }] };
+    expect(judge(o2, { juice: 2 }, [juice]).say).toBe('주스를 같이 세어 볼까요? 하나, 둘. 두 병이에요. 손님은 세 병 달라고 했어요. 한 병 더 담아 볼까요?');
+  });
+});
+

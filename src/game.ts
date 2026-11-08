@@ -58,10 +58,13 @@ export const unitOf = (i: Item) => i.unit || '개';
 export type Age = '3' | '5' | '7';
 export type Mode = 'clerk' | 'customer';
 
+/** 유치원 반(만 나이)과 맞춥니다. id 는 저장·호환을 위해 예전 값('3'·'5'·'7')을 그대로 씁니다.
+ *  개수 상한 근거: 만 3세는 수 이름의 뜻을 1~3까지 알아 가는 시기(Give-N 연구),
+ *  누리과정 해설은 대략 3세 5개·4세 10개·5세 20개 구체물 세기를 다룹니다. 화면에서 그림을 세는 놀이라 그보다 낮게 둡니다. */
 export const AGES: { id: Age; label: string; detail: string }[] = [
-  { id: '3', label: '3~4세', detail: '한 가지 · 조금' },
-  { id: '5', label: '5~6세', detail: '한두 가지' },
-  { id: '7', label: '7세', detail: '두 가지 · 더 많이' },
+  { id: '3', label: '만 3세', detail: '한 가지 · 3개까지' },
+  { id: '5', label: '만 4세', detail: '한두 가지 · 5개까지' },
+  { id: '7', label: '만 5세', detail: '두 가지 · 7개까지' },
 ];
 
 /** 나이와 놀이에 따라 가짓수와 개수 범위를 정합니다. 말하기(손님 놀이)는 조금 더 쉽게 둡니다.
@@ -69,8 +72,8 @@ export const AGES: { id: Age; label: string; detail: string }[] = [
 const RULES: Record<Mode, Record<Age, { kinds: number[]; max: number; firstOnly: boolean }>> = {
   clerk: {
     '3': { kinds: [1], max: 3, firstOnly: true },
-    '5': { kinds: [1, 2], max: 4, firstOnly: false },
-    '7': { kinds: [2], max: 5, firstOnly: false },
+    '5': { kinds: [1, 2], max: 5, firstOnly: false },
+    '7': { kinds: [2], max: 7, firstOnly: false },
   },
   customer: {
     '3': { kinds: [1], max: 2, firstOnly: false },
@@ -137,6 +140,15 @@ export const orderText = (order: Order) => `${orderList(order)} 주세요.`;
 export const orderList = (order: Order) => joinAnd(order.lines.map(l => `${l.item.name} ${countWord(l.count)} ${unitOf(l.item)}`));
 const names = (order: Order) => joinAnd(order.lines.map(l => l.item.name));
 
+const TALLY = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
+/** 장바구니에 든 것을 소리 내어 같이 세어 줍니다: "사과를 같이 세어 볼까요? 하나, 둘. 두 개예요."
+ *  답만 알려 주기보다 세는 방법(하나씩 대응, 마지막 수가 전체)을 보여 주는 설명형 피드백입니다. */
+const countAloud = (item: Item, have: number) => {
+  const u = unitOf(item);
+  const tally = have <= TALLY.length ? ` ${TALLY.slice(0, have).join(', ')}.` : '';
+  return `${josa(item.name, '을', '를')} 같이 세어 볼까요?${tally} ${countWord(have)} ${josa(u, '이에요', '예요')}.`;
+};
+
 export type Verdict = { ok: boolean; say: string; kind: string };
 
 /** 점원 놀이: 쟁반을 보고 손님이 할 말. 틀려도 혼내지 않고 고칠 점만 알려 줍니다. */
@@ -147,15 +159,15 @@ export function judge(order: Order, tray: Tray, items: readonly Item[] = ITEMS):
   if (extra) return { ok: false, kind: 'wrong-item', say: `${josa(extra.name, '은', '는')} 안 시켰어요. ${josa(names(order), '을', '를')} 찾아볼까요?` };
   for (const l of order.lines) {
     const have = tray[l.item.id] ?? 0;
-    const subj = josa(l.item.name, '이', '가');
     const u = unitOf(l.item);
+    const asked = `손님은 ${countWord(l.count)} ${u} 달라고 했어요.`;
     if (have < l.count) {
       const say = have
-        ? `${subj} ${countWord(have)} ${u}밖에 없어요. ${countWord(l.count - have)} ${u} 더 주세요.`
+        ? `${countAloud(l.item, have)} ${asked} ${countWord(l.count - have)} ${u} 더 담아 볼까요?`
         : `${josa(l.item.name, '은', '는')} 아직 없어요. ${countWord(l.count)} ${u} 담아 주세요.`;
       return { ok: false, kind: 'too-few', say };
     }
-    if (have > l.count) return { ok: false, kind: 'too-many', say: `${subj} 많아요. ${countWord(have - l.count)} ${u} 빼 주세요.` };
+    if (have > l.count) return { ok: false, kind: 'too-many', say: `${countAloud(l.item, have)} ${asked} ${countWord(have - l.count)} ${u} 빼 볼까요?` };
   }
   return { ok: true, kind: 'ok', say: `고마워요! ${orderList(order)}, 딱 맞아요.` };
 }

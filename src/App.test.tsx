@@ -60,7 +60,7 @@ describe('점원 놀이', () => {
   it('3~4세는 먹거리 통로만 보입니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: /3~4세/ }));
+    await user.click(screen.getByRole('button', { name: /만 3세/ }));
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
     expect(screen.queryByRole('button', { name: '2번 통로 · 장난감·생활' })).toBeNull();
   });
@@ -189,7 +189,7 @@ describe('유아 교육 관점 보완', () => {
   it('점원 놀이: 3~4세는 한 번만 막혀도 그림을 보여 주고, 맞히면 그림이 사라집니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: /3~4세/ }));
+    await user.click(screen.getByRole('button', { name: /만 3세/ }));
     await user.click(screen.getByRole('button', { name: '가게 문 열기' }));
     await user.click(screen.getByRole('button', { name: '바나나 담기' }));
     await user.click(screen.getByRole('button', { name: '손님께 드리기' }));

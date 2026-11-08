@@ -9,8 +9,8 @@ import { browserRecognizer, hush, say, sayIfQuiet, setVoice, type Listening, typ
 import Teacher from './Teacher';
 
 type Props = { rng?: () => number; recognizer?: Recognizer };
-/** 나이 버튼을 누르면 읽어 줄 말 ("3~4세"를 기계가 이상하게 읽지 않게) */
-const AGE_SAY: Record<Age, string> = { '3': '세 살, 네 살', '5': '다섯 살, 여섯 살', '7': '일곱 살' };
+/** 나이 버튼을 누르면 읽어 줄 말 ("만 3세"를 또렷하게 읽도록) */
+const AGE_SAY: Record<Age, string> = { '3': '만 세 살', '5': '만 네 살', '7': '만 다섯 살' };
 type Screen = 'start' | 'play' | 'done' | 'gate' | 'teacher';
 
 export default function App({ rng = Math.random, recognizer = browserRecognizer }: Props) {
@@ -136,7 +136,7 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   const [aisle, setAisle] = useState(aisles[0]);
   const [tray, setTray] = useState<Tray>({});
   const [verdict, setVerdict] = useState<Verdict | null>(null);
-  // 잘 안 될 때 주문을 그림으로도 보여 줍니다 (3~4세는 한 번, 그 위는 두 번 막히면).
+  // 잘 안 될 때 주문을 그림으로도 보여 줍니다 (만 3세는 한 번, 그 위는 두 번 막히면).
   const [misses, setMisses] = useState(0);
   const showPics = !verdict?.ok && misses >= (age === '3' ? 1 : 2);
   const line = orderText(order);

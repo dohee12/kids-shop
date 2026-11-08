@@ -295,7 +295,7 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
                 </label>
                 {shop.aisles.length > 1 && <button type="button" className="t-link danger" onClick={() => removeAisle(aisle.id)}>통로 {ai + 1} 지우기</button>}
               </div>
-              {ai === 0 && <p className="t-help">3~4세 점원 놀이는 첫 번째 통로만 나와요.</p>}
+              {ai === 0 && <p className="t-help">만 3세 점원 놀이는 첫 번째 통로만 나와요.</p>}
               <ul className="t-items">
                 {list.map(it => (
                   <li key={it.id} className={it.hidden ? 'off' : ''}>

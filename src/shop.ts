@@ -129,11 +129,11 @@ export function checkShop(shop: Shop): string[] {
   }
   if (dup.size) out.push(`같은 이름이나 다르게 부르는 말이 두 번 있어요: ${[...dup].join(', ')}. 말로 주문할 때 헷갈려요.`);
   if (shown.length === 0) out.push('아이 화면에 보이는 물건이 하나도 없어요.');
-  else if (shown.length < 2) out.push('7세 놀이는 두 가지를 시켜요. 보이는 물건을 두 개 이상 두면 좋아요.');
+  else if (shown.length < 2) out.push('만 5세 놀이는 두 가지를 시켜요. 보이는 물건을 두 개 이상 두면 좋아요.');
   return out;
 }
-/** 저장을 막는 문제만 (7세 안내는 저장은 됩니다) */
-export const blocking = (problems: string[]) => problems.filter(p => !p.startsWith('7세'));
+/** 저장을 막는 문제만 (만 5세 안내는 저장은 됩니다) */
+export const blocking = (problems: string[]) => problems.filter(p => !p.startsWith('만 5세'));
 
 // ── 새 id ──
 
