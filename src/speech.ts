@@ -56,6 +56,20 @@ export function voiceLabel(v: Pick<SpeechSynthesisVoice, 'name' | 'localService'
 
 let waiting: ReturnType<typeof setTimeout> | undefined;
 let last = { text: '', at: 0 };
+/** say() 로 말하는 중인 문장 (손님 주문, 안내). 수 세기는 이 말을 끊지 않습니다. */
+let current: SpeechSynthesisUtterance | null = null;
+/** 손님 말이 끝나면 이어서 말할 수 세기 (마지막 것 하나만) */
+let queuedCount: string | null = null;
+
+function utter(text: string, p: VoicePrefs): SpeechSynthesisUtterance {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  u.rate = p.rate;
+  u.pitch = p.pitch;
+  const voice = pickVoice(p);
+  if (voice) u.voice = voice;
+  return u;
+}
 
 export function say(text: string, p: VoicePrefs = prefs): void {
   const synth = synthOf();
@@ -65,15 +79,20 @@ export function say(text: string, p: VoicePrefs = prefs): void {
   const now = Date.now();
   if (text === last.text && now - last.at < 400) return;
   last = { text, at: now };
+  queuedCount = null;
+  current = null;
   synth.cancel();
   clearTimeout(waiting);
+  waiting = undefined;
   const speak = () => {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ko-KR';
-    u.rate = p.rate;
-    u.pitch = p.pitch;
-    const voice = pickVoice(p);
-    if (voice) u.voice = voice;
+    waiting = undefined;
+    const u = utter(text, p);
+    current = u;
+    u.onend = u.onerror = () => {
+      if (current !== u) return; // 다른 말에 끊긴 것
+      current = null;
+      if (queuedCount != null) { const t = queuedCount; queuedCount = null; synth.speak(utter(t, p)); }
+    };
     synth.speak(u);
   };
   // 목록이 아직 비어 있으면 브라우저 기본 목소리로 말해 버리므로, 목록이 올 때까지 잠깐(최대 1.5초) 기다립니다.
@@ -86,6 +105,19 @@ export function say(text: string, p: VoicePrefs = prefs): void {
   waiting = setTimeout(tryLater, 100);
 }
 
+/** 수 세기 ("사과 하나", "둘", "셋"). 앞선 수 세기는 끊고 새 수를 바로 말합니다.
+ *  손님 말을 하는 중이면 끊지 않고, 끝난 뒤 마지막 수 하나만 이어서 말합니다. */
+export function sayCount(text: string, p: VoicePrefs = prefs): void {
+  const synth = synthOf();
+  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') return;
+  if (waiting !== undefined || (current && (synth.speaking || synth.pending))) { queuedCount = text; return; }
+  current = null;
+  queuedCount = null;
+  last = { text: '', at: 0 };
+  synth.cancel();
+  synth.speak(utter(text, p));
+}
+
 /** 다른 말을 하고 있지 않을 때만 짧게 말합니다 (물건 이름 들려주기처럼 손님 말을 끊으면 안 될 때). */
 export function sayIfQuiet(text: string, p: VoicePrefs = prefs): void {
   const synth = synthOf();
@@ -95,6 +127,9 @@ export function sayIfQuiet(text: string, p: VoicePrefs = prefs): void {
 
 export function hush(): void {
   clearTimeout(waiting);
+  waiting = undefined;
+  current = null;
+  queuedCount = null;
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
 }
 

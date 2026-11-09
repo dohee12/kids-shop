@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Animal, Pic } from './Art';
 import { complaintText, judgeCare, judgeComplaint, makeVisit, type Visit } from './clinic';
 import {
-  AGES, aislesFor, countWord, judge, judgeSpoken, kindOf, makeOrder, orderList, orderText, shownItems, unitOf,
+  addSay, AGES, aislesFor, countWord, judge, judgeSpoken, kindOf, makeOrder, orderList, orderText, removeSay, shownItems, unitOf,
   type Age, type Item, type Kind, type Mode, type Order, type Shop, type Tray, type Verdict,
 } from './game';
 import { asksWhere, judgeWhere, kioskAsk, makeKioskOrder, orderNumber, WHERE, type KioskOrder, type Where } from './kiosk';
 import { loadStore, saveStore, type Store } from './shop';
-import { browserRecognizer, hush, say, sayIfQuiet, setVoice, type Listening, type Recognizer } from './speech';
+import { browserRecognizer, hush, say, sayCount, sayIfQuiet, setVoice, type Listening, type Recognizer } from './speech';
 import Teacher from './Teacher';
 
 type Props = { rng?: () => number; recognizer?: Recognizer };
@@ -249,6 +249,23 @@ function TrayList({ items, tray, age, onMinus, disabled, counts = true }: {
   );
 }
 
+/** 담고 뺄 때 수를 소리 내어 세어 줍니다: "사과 하나" → "둘" → "셋". 다른 물건을 담으면 다시 이름부터. */
+function useCounting(items: Item[]) {
+  const lastId = useRef<string | null>(null);
+  return {
+    added: (id: string, count: number) => {
+      const it = items.find(i => i.id === id);
+      if (it) sayCount(addSay(it, count, lastId.current === id));
+      lastId.current = id;
+    },
+    removed: (id: string, count: number) => {
+      const it = items.find(i => i.id === id);
+      if (it) sayCount(removeSay(it, count));
+      lastId.current = count > 0 ? id : null;
+    },
+  };
+}
+
 /** 쟁반에 하나 더하기 / 하나 빼기 */
 const addOne = (tray: Tray, id: string, max = Infinity): Tray => ({ ...tray, [id]: Math.min(max, (tray[id] ?? 0) + 1) });
 const takeOne = (tray: Tray, id: string): Tray => {
@@ -280,16 +297,19 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
 
   useEffect(() => { say(hello); }, [hello]);
 
+  const counting = useCounting(items);
+  // 누른 물건 이름과 수를 들려줘 낱말·그림·수를 잇습니다 ("사과 하나", "둘"). 손님 말은 끊지 않습니다.
   const put = (id: string) => {
     if (solved) return;
-    setTray(addOne(tray, id)); setVerdict(null);
-    // 누른 물건 이름을 들려줘 낱말과 그림을 잇습니다. 손님이 말하는 중이면 끊지 않습니다.
-    const it = items.find(i => i.id === id);
-    if (it) sayIfQuiet(it.name);
+    const t = addOne(tray, id);
+    setTray(t); setVerdict(null);
+    counting.added(id, t[id]);
   };
   const takeOut = (id: string) => {
     if (solved) return;
-    setTray(takeOne(tray, id)); setVerdict(null);
+    const t = takeOne(tray, id);
+    setTray(t); setVerdict(null);
+    counting.removed(id, t[id] ?? 0);
   };
   const give = () => {
     const v = judge(order, tray, items);
@@ -447,13 +467,19 @@ function KioskPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   useEffect(() => { say(hello); }, [hello]);
 
   const speak = (text: string) => { setVerdict({ ok: false, kind: 'info', say: text }); say(text); };
+  const counting = useCounting(items);
   const put = (id: string) => {
     if (step !== 'menu') return;
-    setTray(addOne(tray, id)); setVerdict(null);
-    const it = items.find(i => i.id === id);
-    if (it) sayIfQuiet(it.name);
+    const t = addOne(tray, id);
+    setTray(t); setVerdict(null);
+    counting.added(id, t[id]);
   };
-  const takeOut = (id: string) => { if (step === 'menu') { setTray(takeOne(tray, id)); setVerdict(null); } };
+  const takeOut = (id: string) => {
+    if (step !== 'menu') return;
+    const t = takeOne(tray, id);
+    setTray(t); setVerdict(null);
+    counting.removed(id, t[id] ?? 0);
+  };
   const submit = () => {
     const v = judge(order, tray, items, `${name} 친구`);
     if (!v.ok) {

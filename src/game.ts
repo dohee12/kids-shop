@@ -145,6 +145,18 @@ export const orderList = (order: Order) => joinAnd(order.lines.map(l => `${l.ite
 const names = (order: Order) => joinAnd(order.lines.map(l => l.item.name));
 
 const TALLY = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
+/** 세는 소리: 1 → "하나", 3 → "셋" (열을 넘으면 숫자) */
+export const tallyWord = (n: number) => TALLY[n - 1] ?? String(n);
+
+/** 담을 때 들려줄 말. 같은 물건을 이어서 담으면 수와 세는 말만 ("두 잔", "세 잔"), 처음이거나 다른 물건이면 이름과 함께 ("콜라 한 잔").
+ *  손님 주문("콜라 두 잔")과 같은 말로 세어서 주문과 바로 견줄 수 있게 합니다.
+ *  물건 하나에 수 하나를 맞춰 세는 것(일대일 대응)과 마지막 수가 전체라는 것(기수 원리)을 소리로 보여 줍니다. */
+export const addSay = (item: Item, count: number, sameAsLast: boolean) => {
+  const n = `${countWord(count)} ${unitOf(item)}`;
+  return sameAsLast && count > 1 ? n : `${item.name} ${n}`;
+};
+/** 뺄 때 들려줄 말: 남은 수 ("콜라 한 잔"), 다 빼면 "콜라는 다 뺐어요" */
+export const removeSay = (item: Item, count: number) => (count > 0 ? `${item.name} ${countWord(count)} ${unitOf(item)}` : `${josa(item.name, '은', '는')} 다 뺐어요`);
 /** 장바구니에 든 것을 소리 내어 같이 세어 줍니다: "사과를 같이 세어 볼까요? 하나, 둘. 두 개예요."
  *  답만 알려 주기보다 세는 방법(하나씩 대응, 마지막 수가 전체)을 보여 주는 설명형 피드백입니다. */
 const countAloud = (item: Item, have: number) => {
