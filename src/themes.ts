@@ -52,7 +52,64 @@ const STATIONERY: Shop = {
   ],
 };
 
-export const BUILTIN: Shop[] = [SUPER, FRUIT, BAKERY, STATIONERY];
+const SNACK: Shop = {
+  id: 'snack', name: '꼬마 분식집', greeting: '어서 오세요! 따끈한 음식이 있어요. 무엇을 드릴까요?', customers: all, rounds: 5,
+  aisles: [{ id: 'k1', label: '차림표' }],
+  items: [
+    it('k-ramen', '라면', 'k1', '밥·국수', '🍜', '그릇', ['라멘']),
+    it('k-curry', '카레', 'k1', '밥·국수', '🍛', '그릇', ['카레라이스']),
+    it('k-riceball', '주먹밥', 'k1', '밥·국수', '🍙', '개', ['삼각김밥']),
+    it('k-dumpling', '만두', 'k1', '간식', '🥟', '개', ['군만두', '물만두']),
+    it('k-fishcake', '어묵', 'k1', '간식', '🍢', '개', ['오뎅', '어묵꼬치']),
+    it('k-shrimp', '새우튀김', 'k1', '간식', '🍤', '개', ['튀김']),
+    it('k-hotdog', '핫도그', 'k1', '간식', '🌭', '개'),
+    it('k-drink', '음료수', 'k1', '마실 것', '🥤', '잔', ['음료', '콜라', '사이다']),
+  ],
+};
+
+const FLOWER: Shop = {
+  id: 'flower', name: '꼬마 꽃집', greeting: '어서 오세요! 예쁜 꽃이 많아요. 어떤 꽃을 드릴까요?', customers: all, rounds: 5,
+  aisles: [{ id: 'p1', label: '꽃 진열대' }],
+  items: [
+    it('p-rose', '장미', 'p1', '꽃', '🌹', '송이', ['장미꽃']),
+    it('p-tulip', '튤립', 'p1', '꽃', '🌷', '송이', ['튜울립', '튤립꽃']),
+    it('p-sunflower', '해바라기', 'p1', '꽃', '🌻', '송이'),
+    it('p-daisy', '데이지', 'p1', '꽃', '🌼', '송이', ['들국화']),
+    it('p-bouquet', '꽃다발', 'p1', '선물', '💐', '다발'),
+    it('p-pot', '화분', 'p1', '화분', '🪴', '개', ['나무']),
+    it('p-cactus', '선인장', 'p1', '화분', '🌵', '개'),
+  ],
+};
+
+const ICECREAM: Shop = {
+  id: 'icecream', name: '꼬마 아이스크림 가게', greeting: '어서 오세요! 시원한 간식이 있어요. 무엇을 드릴까요?', customers: all, rounds: 5,
+  aisles: [{ id: 'i1', label: '냉동 진열대' }],
+  items: [
+    it('i-cone', '소프트콘', 'i1', '아이스크림', '🍦', '개', ['아이스크림콘', '콘']),
+    it('i-cup', '컵아이스크림', 'i1', '아이스크림', '🍨', '개'),
+    it('i-bingsu', '팥빙수', 'i1', '아이스크림', '🍧', '그릇', ['빙수']),
+    it('i-choco', '초콜릿', 'i1', '과자', '🍫', '개', ['초콜렛', '쪼꼬렛', '초코']),
+    it('i-candy', '사탕', 'i1', '과자', '🍭', '개', ['막대사탕']),
+    it('i-milk', '우유', 'i1', '마실 것', 'milk', '잔'),
+  ],
+};
+
+const CLOTHES: Shop = {
+  id: 'clothes', name: '꼬마 옷가게', greeting: '어서 오세요! 어떤 옷을 찾으세요?', customers: all, rounds: 5,
+  aisles: [{ id: 'c1', label: '옷 진열대' }],
+  items: [
+    it('c-tshirt', '티셔츠', 'c1', '옷', '👕', '벌', ['티', '반팔']),
+    it('c-pants', '바지', 'c1', '옷', '👖', '벌', ['청바지']),
+    it('c-dress', '원피스', 'c1', '옷', '👗', '벌', ['치마']),
+    it('c-socks', '양말', 'c1', '신발·양말', '🧦', '켤레'),
+    it('c-shoes', '운동화', 'c1', '신발·양말', '👟', '켤레', ['신발']),
+    it('c-gloves', '장갑', 'c1', '모자·장갑', '🧤', '켤레', ['벙어리장갑']),
+    it('c-cap', '모자', 'c1', '모자·장갑', '🧢', '개'),
+    it('c-scarf', '목도리', 'c1', '모자·장갑', '🧣', '개', ['스카프']),
+  ],
+};
+
+export const BUILTIN: Shop[] = [SUPER, FRUIT, BAKERY, STATIONERY, SNACK, FLOWER, ICECREAM, CLOTHES];
 export const isBuiltin = (id: string) => BUILTIN.some(s => s.id === id);
 
 /** 붙여 넣은 물건 이름으로 그림을 짐작할 때 씁니다 ("사과" → 사과 그림). */

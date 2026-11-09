@@ -5,7 +5,7 @@
 // 가게(주제)는 선생님이 바꿀 수 있습니다. 아이 정보는 저장하지 않습니다.
 
 /** 물건 세는 말. 말 알아듣기에서도 이 낱말들을 개수 단위로 봅니다. */
-export const UNITS = ['개', '병', '봉지', '송이', '자루', '장', '통', '조각', '권'] as const;
+export const UNITS = ['개', '병', '봉지', '송이', '자루', '장', '통', '조각', '권', '그릇', '잔', '다발', '켤레', '벌'] as const;
 
 /** pic: 직접 그린 그림 id, 이모지, 또는 사진(data:image/…) */
 export type Item = { id: string; name: string; aisle: string; shelf: string; unit?: string; aliases?: string[]; pic?: string; hidden?: boolean };

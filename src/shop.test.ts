@@ -9,10 +9,10 @@ const fruit = BUILTIN.find(s => s.id === 'fruit')!;
 const zero = () => 0;
 
 describe('저장하고 다시 읽기', () => {
-  it('처음에는 기본 주제 네 개, 슈퍼마켓이 골라져 있습니다', () => {
+  it('처음에는 기본 주제 여덟 개, 슈퍼마켓이 골라져 있습니다', () => {
     const s = loadStore();
     expect(s.current).toBe('super');
-    expect(s.shops.map(x => x.name)).toEqual(['꼬마 슈퍼마켓', '꼬마 과일가게', '꼬마 빵집', '꼬마 문구점']);
+    expect(s.shops.map(x => x.name)).toEqual(['꼬마 슈퍼마켓', '꼬마 과일가게', '꼬마 빵집', '꼬마 문구점', '꼬마 분식집', '꼬마 꽃집', '꼬마 아이스크림 가게', '꼬마 옷가게']);
   });
   it('저장한 것을 그대로 읽습니다', () => {
     const s = defaultStore();
@@ -29,7 +29,7 @@ describe('저장하고 다시 읽기', () => {
   });
   it('저장된 것에 없는 기본 주제는 뒤에 붙여 줍니다', () => {
     localStorage.setItem(STORE_KEY, JSON.stringify({ current: 'super', shops: [SUPER] }));
-    expect(loadStore().shops).toHaveLength(4);
+    expect(loadStore().shops).toHaveLength(8);
   });
 });
 
