@@ -349,3 +349,33 @@ main { max-width: 1100px; margin: 0 auto; min-height: 100dvh; padding: 16px; dis
   .top-title { font-size: 22px; }
   .top .road { flex-basis: 100%; justify-content: center; padding-bottom: 4px; }
 }
+
+/* ── 사용성 점검 반영 (2026-11-09) ── */
+/* 길게 눌러도 글자가 선택되거나 그림 메뉴가 뜨지 않게 */
+button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+img, svg { -webkit-user-drag: none; }
+.top-title { font-weight: 400; }
+.pick .age small { font-size: 14px; }
+
+/* 마을로 나가기 확인 */
+.leave .celebrate-card h2 { font-size: 40px; }
+.leave-btns { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+.leave-go { background: #EEF2F6; color: var(--ink); box-shadow: 0 7px 0 #C9D3DC; }
+.leave-go:active { transform: translateY(4px); box-shadow: 0 3px 0 #C9D3DC; }
+
+/* 좁은 화면(태블릿 세로·휴대폰): 손님 말풍선을 맨 위로, 주요 버튼은 화면 아래에 늘 보이게 */
+@media (max-width: 949px) {
+  .pick-play .side { display: contents; }
+  .pick-play .person, .pick-play .order-pics { order: -1; }
+  .pick-play .play-body { flex-direction: column; flex-wrap: nowrap; }
+  .pick-play { padding-bottom: 116px; }
+  .pick-play .action {
+    position: fixed; z-index: 6; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom));
+    max-width: 560px; margin: 0 auto;
+  }
+  .kiosk-play .kiosk-cart .action { left: 16px; right: 16px; }
+}
+@media (max-height: 520px) {
+  .pick-play { padding-bottom: 96px; }
+  .pick-play .action { position: fixed; z-index: 6; left: 16px; right: 16px; bottom: 10px; max-width: 560px; margin: 0 auto; padding-top: 12px; padding-bottom: 12px; }
+}

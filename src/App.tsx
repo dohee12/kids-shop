@@ -57,7 +57,10 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
     setRound(round + 1);
     deal(mode);
   };
-  const home = () => { hush(); setScreen('start'); };
+  const home = () => { hush(); setLeaving(false); setScreen('start'); };
+  // 놀이 중 "마을로"는 실수로 누르기 쉬워서 한 번 더 묻습니다.
+  const [leaving, setLeaving] = useState(false);
+  const askLeave = () => { setLeaving(true); say('마을로 돌아갈까요?'); };
   const leaveTeacher = () => { setPreview(null); setPicked(null); setScreen('start'); };
   const saveShops = (s: Store) => {
     if (!saveStore(s)) return false;
@@ -75,23 +78,32 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   if (screen === 'done') return <Done kind={kind} mode={mode} rounds={rounds} customers={shop.customers} onAgain={() => start()} onHome={home} />;
   const guest = kind === 'clinic' ? visit?.customer : order?.customer;
   if (screen === 'play' && guest) {
-    const top = <Top title={shop.name} round={round} rounds={rounds} customer={guest.id} onHome={home} />;
+    const top = <Top title={shop.name} round={round} rounds={rounds} customer={guest.id} onHome={askLeave} />;
     const last = round >= rounds;
     const talk = { top, age, last, onNext: next, recognizer, micOn, micAgreed, onAgree: () => setMicAgreed(true) };
-    if (kind === 'clinic' && visit) {
-      return mode === 'clerk'
-        ? <ClinicPlay key={round} top={top} shop={shop} visit={visit} age={age} last={last} onNext={next} />
-        : <PatientPlay key={round} {...talk} shop={shop} visit={visit} />;
-    }
-    if (kind === 'kiosk' && order) {
-      return mode === 'clerk'
-        ? <KioskPlay key={round} top={top} shop={shop} order={order as KioskOrder} age={age} last={last} onNext={next} />
-        : <CustomerPlay key={round} {...talk} shop={shop} order={order} kiosk />;
-    }
-    if (order) {
+    const play = (() => {
+      if (kind === 'clinic' && visit) {
+        return mode === 'clerk'
+          ? <ClinicPlay key={round} top={top} shop={shop} visit={visit} age={age} last={last} onNext={next} />
+          : <PatientPlay key={round} {...talk} shop={shop} visit={visit} />;
+      }
+      if (kind === 'kiosk' && order) {
+        return mode === 'clerk'
+          ? <KioskPlay key={round} top={top} shop={shop} order={order as KioskOrder} age={age} last={last} onNext={next} />
+          : <CustomerPlay key={round} {...talk} shop={shop} order={order} kiosk />;
+      }
+      if (!order) return null;
       return mode === 'clerk'
         ? <ClerkPlay key={round} top={top} shop={shop} order={order} age={age} last={last} onNext={next} />
         : <CustomerPlay key={round} {...talk} shop={shop} order={order} />;
+    })();
+    if (play) {
+      return (
+        <>
+          {play}
+          {leaving && <LeaveAsk onStay={() => { setLeaving(false); hush(); }} onLeave={home} />}
+        </>
+      );
     }
   }
   return (
@@ -134,13 +146,29 @@ function Gate({ rng, onPass, onCancel }: { rng: () => number; onPass: () => void
   );
 }
 
+/** 마을로 나가기 전에 묻기: 글을 못 읽어도 알 수 있게 그림과 소리로 */
+function LeaveAsk({ onStay, onLeave }: { onStay: () => void; onLeave: () => void }) {
+  return (
+    <div className="celebrate leave" role="dialog" aria-label="마을로 갈까요?">
+      <div className="celebrate-card">
+        <h2>마을로 갈까요?</h2>
+        <p>지금 하던 놀이는 처음부터 다시 해요.</p>
+        <div className="leave-btns">
+          <button type="button" className="big go blue" onClick={onStay} autoFocus>▶ 계속 놀기</button>
+          <button type="button" className="big leave-go" onClick={onLeave}>🏠 마을로 가기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Top({ title, round, rounds, customer, onHome }: { title: string; round: number; rounds: number; customer: string; onHome: () => void }) {
   return (
     <header className="top">
       <button type="button" className="link" onClick={onHome}>‹ 마을로</button>
-      <p className="top-title">{title}</p>
+      <h1 className="top-title">{title}</h1>
       {/* 손님이 걸어오는 길: 지난 손님은 별, 지금 손님은 얼굴 */}
-      <p className="road" aria-label={`손님 ${rounds}명 중 ${round}번째`}>
+      <p className="road" role="img" aria-label={`손님 ${rounds}명 중 ${round}번째`}>
         {Array.from({ length: rounds }, (_, i) => (
           <span key={i} className="road-step">
             {i > 0 && <i className={i < round ? 'road-line on' : 'road-line'} aria-hidden="true" />}
@@ -172,7 +200,7 @@ function Celebrate({ animal, title, line, next, onNext }: { animal: string; titl
 /** 손님 기분: 맞는 물건을 맞는 만큼 담을수록 하트가 찹니다. */
 function Mood({ value }: { value: number }) {
   return (
-    <div className="mood" aria-label={`손님 기분 하트 3개 중 ${value}개`}>
+    <div className="mood" role="img" aria-label={`손님 기분 하트 3개 중 ${value}개`}>
       {[1, 2, 3].map(k => (
         <svg key={k} width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 21s-7.5-4.6-9.5-9.3C1 8 3.4 4.5 7 4.5c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.6 0 6 3.5 4.5 7.2C19.5 16.4 12 21 12 21z"
@@ -319,7 +347,7 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
     say(v.say + hint);
   };
   return (
-    <main className="play">
+    <main className="play pick-play">
       {top}
       <div className="play-body">
         <Shelf shop={shop} aisles={aisles} aisle={aisle} setAisle={setAisle} onPut={put} disabled={solved} />
@@ -348,7 +376,7 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
             {total === 0 ? <p className="basket-empty">진열대에서 물건을 눌러 담아요</p>
               : <TrayList items={items} tray={tray} age={age} onMinus={takeOut} disabled={solved} />}
           </div>
-          {!solved && <button type="button" className="big go" onClick={give} disabled={total === 0}>손님께 드리기</button>}
+          {!solved && <button type="button" className="big go action" onClick={give} disabled={total === 0}>손님께 드리기</button>}
         </section>
       </div>
       {solved && <Celebrate animal={order.customer.id} title="잘 골랐어요!" line={verdict!.say} next={last ? '오늘 가게 놀이 끝!' : '다음 손님 오세요'} onNext={onNext} />}
@@ -392,7 +420,7 @@ function ClinicPlay({ top, shop, visit, age, last, onNext }: { top: React.ReactN
   };
 
   return (
-    <main className="play clinic">
+    <main className="play pick-play clinic">
       {top}
       <div className="play-body">
         <Shelf shop={shop} aisles={aisles} aisle={aisle} setAisle={setAisle} onPut={put} disabled={solved} verb="고르기" label="진료 도구" />
@@ -417,7 +445,7 @@ function ClinicPlay({ top, shop, visit, age, last, onNext }: { top: React.ReactN
             {picked.length === 0 ? <p className="basket-empty">필요한 도구를 눌러 넣어요</p>
               : <TrayList items={items} tray={tray} age={age} onMinus={takeOut} disabled={solved} counts={false} />}
           </div>
-          {!solved && <button type="button" className="big go" onClick={use} disabled={picked.length === 0}>치료해 주기</button>}
+          {!solved && <button type="button" className="big go action" onClick={use} disabled={picked.length === 0}>치료해 주기</button>}
         </section>
       </div>
       {solved && <Celebrate animal={visit.customer.id} title="다 나았어요!" line={verdict!.say} next={last ? '오늘 병원 놀이 끝!' : '다음 환자 오세요'} onNext={onNext} />}
@@ -503,7 +531,7 @@ function KioskPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   };
 
   return (
-    <main className="play kiosk-play">
+    <main className="play pick-play kiosk-play">
       {top}
       <div className="play-body">
         <section className="kiosk" aria-label="키오스크 화면">
@@ -520,7 +548,7 @@ function KioskPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
                 <p className="basket-title">🧾 주문 목록</p>
                 {total === 0 ? <p className="basket-empty">메뉴를 눌러 담아요</p>
                   : <TrayList items={items} tray={tray} age={age} onMinus={takeOut} disabled={false} />}
-                <button type="button" className="big go" onClick={submit} disabled={total === 0}>주문하기</button>
+                <button type="button" className="big go action" onClick={submit} disabled={total === 0}>주문하기</button>
               </div>
             </>
           )}
@@ -745,6 +773,16 @@ function Start({ shops, shop, onPick, mode, setMode, age, setAge, onStart, onTea
 }) {
   const roofOf = (i: number) => ROOFS[i % ROOFS.length];
   const cur = Math.max(0, shops.findIndex(s => s.id === shop.id));
+  // 좁은 화면에서는 고르는 칸이 지도 아래에 있어서, 건물을 누르면 그 칸이 보이게 내려 줍니다.
+  const pickRef = useRef<HTMLElement>(null);
+  const showPick = () => {
+    const el = pickRef.current;
+    if (!el || typeof window === 'undefined') return;
+    if (el.getBoundingClientRect().top < window.innerHeight * 0.6) return;
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // 고르는 칸이 화면보다 크면(휴대폰 가로) "놀러 가기" 버튼이 보이도록 아래 끝을 맞춥니다.
+    el.scrollIntoView?.({ behavior: calm ? 'auto' : 'smooth', block: el.offsetHeight > window.innerHeight ? 'end' : 'start' });
+  };
   return (
     <main className="village">
       <header className="sky">
@@ -759,7 +797,7 @@ function Start({ shops, shop, onPick, mode, setMode, age, setAge, onStart, onTea
             const sign = shownItems(s)[0];
             return (
               <button type="button" key={s.id} className="building" aria-pressed={s.id === shop.id}
-                onClick={() => { onPick(s.id); say(`${s.name}에 가 볼까요?`); }}>
+                onClick={() => { onPick(s.id); say(`${s.name}에 가 볼까요?`); showPick(); }}>
                 <span className="bld">
                   <svg width="132" height="116" viewBox="0 0 150 132" aria-hidden="true">
                     <rect x="14" y="40" width="122" height="88" rx="8" fill="#FFF4E3" stroke="#5B4636" strokeWidth="3" />
@@ -785,7 +823,7 @@ function Start({ shops, shop, onPick, mode, setMode, age, setAge, onStart, onTea
             <g fill="#FFC531"><circle cx="150" cy="54" r="5" /><circle cx="370" cy="52" r="5" /><circle cx="580" cy="54" r="5" /></g>
           </svg>
         </section>
-        <aside className="pick" aria-label="놀이 고르기">
+        <aside className="pick" aria-label="놀이 고르기" ref={pickRef}>
           <p className="pick-small">여기로 놀러 가요</p>
           <h2 style={{ color: roofOf(cur) }}>{shop.name}</h2>
           <p className="pick-q">누가 되어 볼까요?</p>

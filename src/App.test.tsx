@@ -307,3 +307,20 @@ describe('병원 놀이와 키오스크 놀이', () => {
     expect(screen.getByRole('dialog', { name: '잘 말했어요!' })).toBeInTheDocument();
   });
 });
+
+describe('사용성 점검 반영', () => {
+  it('놀이 중 "마을로"를 누르면 한 번 묻고, "계속 놀기"면 그대로 이어 합니다', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    await user.click(screen.getByRole('button', { name: '사과 담기' }));
+    await user.click(screen.getByRole('button', { name: '‹ 마을로' }));
+    expect(screen.getByRole('dialog', { name: '마을로 갈까요?' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /계속 놀기/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: '사과 하나 빼기' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '‹ 마을로' }));
+    await user.click(screen.getByRole('button', { name: /마을로 가기/ }));
+    expect(screen.getByRole('heading', { name: '꼬마 역할놀이 마을' })).toBeInTheDocument();
+  });
+});
