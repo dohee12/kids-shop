@@ -1,7 +1,8 @@
 // 선생님이 고친 놀이 주제를 이 기기 브라우저(localStorage)에만 저장합니다.
 // 서버로 보내지 않고, 아이 이름이나 기록은 다루지 않습니다.
 import { isArt, isPhoto } from './Art';
-import { CUSTOMERS, DEFAULT_GREETING, UNITS, shownItems, type Aisle, type Item, type Shop } from './game';
+import { symptomsFor } from './clinic';
+import { CUSTOMERS, DEFAULT_GREETING, KINDS, UNITS, shownItems, type Aisle, type Item, type Kind, type Shop } from './game';
 import { DEFAULT_VOICE, type VoicePrefs } from './speech';
 import { BUILTIN, PIC_BY_NAME } from './themes';
 
@@ -112,6 +113,7 @@ export function sanitizeShop(raw: unknown): Shop | null {
     items,
     customers: customers.length ? customers : CUSTOMERS.map(c => c.id),
     rounds: rounds >= 3 && rounds <= 10 ? rounds : 5,
+    ...(KINDS.includes(r.kind as Kind) && r.kind !== 'shop' ? { kind: r.kind as Kind } : {}),
   };
 }
 
@@ -129,6 +131,7 @@ export function checkShop(shop: Shop): string[] {
   }
   if (dup.size) out.push(`같은 이름이나 다르게 부르는 말이 두 번 있어요: ${[...dup].join(', ')}. 말로 주문할 때 헷갈려요.`);
   if (shown.length === 0) out.push('아이 화면에 보이는 물건이 하나도 없어요.');
+  else if (shop.kind === 'clinic' && symptomsFor(shop).length === 0) out.push('아픈 곳에 맞는 진료 도구가 하나도 안 보여요. 반창고·체온계 같은 기본 도구를 하나 이상 보이게 해 주세요.');
   else if (shown.length < 2) out.push('만 5세 놀이는 두 가지를 시켜요. 보이는 물건을 두 개 이상 두면 좋아요.');
   return out;
 }

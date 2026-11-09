@@ -41,6 +41,7 @@ const FUR: Record<string, { fur: string; line: string; inner: string }> = {
   cat: { fur: '#F6C77E', line: '#D9A350', inner: '#F7B6C8' },
   dog: { fur: '#F3E1C7', line: '#C9A77A', inner: '#A9764A' },
   penguin: { fur: '#2E3A4A', line: '#1C2531', inner: '#FFFFFF' },
+  doctor: { fur: '#F3E1C7', line: '#C9A77A', inner: '#A9764A' },
 };
 
 /** 손님·점원 동물 얼굴. happy 면 웃는 입 */
@@ -52,8 +53,10 @@ export function Animal({ id, size = 110, happy = false }: { id: string; size?: n
       {id === 'rabbit' && <><ellipse cx="42" cy="34" rx="12" ry="30" fill={c.fur} stroke={c.line} strokeWidth="3" /><ellipse cx="78" cy="34" rx="12" ry="30" fill={c.fur} stroke={c.line} strokeWidth="3" /><ellipse cx="42" cy="36" rx="5" ry="20" fill={c.inner} /><ellipse cx="78" cy="36" rx="5" ry="20" fill={c.inner} /></>}
       {id === 'bear' && <><circle cx="30" cy="56" r="16" fill={c.fur} stroke={c.line} strokeWidth="3" /><circle cx="90" cy="56" r="16" fill={c.fur} stroke={c.line} strokeWidth="3" /></>}
       {id === 'cat' && <><path d="M26 70 L32 30 L56 54 Z" fill={c.fur} stroke={c.line} strokeWidth="3" strokeLinejoin="round" /><path d="M94 70 L88 30 L64 54 Z" fill={c.fur} stroke={c.line} strokeWidth="3" strokeLinejoin="round" /></>}
-      {id === 'dog' && <><ellipse cx="24" cy="80" rx="12" ry="26" fill={c.inner} transform="rotate(15 24 80)" /><ellipse cx="96" cy="80" rx="12" ry="26" fill={c.inner} transform="rotate(-15 96 80)" /></>}
+      {(id === 'dog' || id === 'doctor') && <><ellipse cx="24" cy="80" rx="12" ry="26" fill={c.inner} transform="rotate(15 24 80)" /><ellipse cx="96" cy="80" rx="12" ry="26" fill={c.inner} transform="rotate(-15 96 80)" /></>}
       <circle cx="60" cy="88" r="40" fill={c.fur} stroke={c.line} strokeWidth="3" />
+      {/* 의사 선생님: 하얀 모자에 빨간 십자 */}
+      {id === 'doctor' && <><path d="M26 66 Q60 24 94 66 Z" fill="#FFFFFF" stroke="#C9D3DC" strokeWidth="3" strokeLinejoin="round" /><path d="M56 40 h8 v6 h6 v8 h-6 v6 h-8 v-6 h-6 v-8 h6 Z" fill="#E5484D" /></>}
       {id === 'penguin' && <ellipse cx="60" cy="94" rx="30" ry="28" fill={face} />}
       <circle cx="46" cy="82" r="5" fill="#2B2235" />
       <circle cx="74" cy="82" r="5" fill="#2B2235" />

@@ -239,3 +239,71 @@ describe('마을 첫 화면 (디자인 시안)', () => {
     expect(screen.queryByText(/스티커/)).toBeNull();
   });
 });
+
+describe('병원 놀이와 키오스크 놀이', () => {
+  it('병원(의사): 아픈 곳을 듣고 도구를 고르면 다 나아요', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: /꼬마 병원/ }));
+    expect(screen.getByRole('button', { name: /내가 의사예요/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    expect(line()).toBe('선생님, 넘어져서 무릎에 상처가 났어요.');
+    await user.click(screen.getByRole('button', { name: '체온계 고르기' }));
+    await user.click(screen.getByRole('button', { name: '치료해 주기' }));
+    expect(line()).toContain('체온계는 몸이 얼마나 뜨거운지 잴 때 써요.');
+    await user.click(screen.getByRole('button', { name: '체온계 하나 빼기' }));
+    await user.click(screen.getByRole('button', { name: '반창고 고르기' }));
+    await user.click(screen.getByRole('button', { name: '반창고 고르기' }));
+    expect(screen.getByLabelText('진료 가방').querySelectorAll('li')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: '치료해 주기' }));
+    expect(screen.getByRole('dialog', { name: '다 나았어요!' })).toHaveTextContent('반창고를 붙이니 하나도 안 아파요.');
+  });
+
+  it('병원(환자): 어디가 아픈지 말하면 의사 선생님이 대답해요', async () => {
+    const { recognizer, speak } = fakeMic();
+    const user = userEvent.setup();
+    render(<App rng={zero} recognizer={recognizer} />);
+    await user.click(screen.getByRole('button', { name: /꼬마 병원/ }));
+    await user.click(screen.getByRole('button', { name: /내가 환자예요/ }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    expect(screen.getByText('무릎에 상처가 났어요')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    await user.click(screen.getByRole('button', { name: /마이크 켜기/ }));
+    speak('선생님 무릎을 다쳤어요');
+    expect(screen.getByRole('dialog', { name: '잘 말했어요!' })).toHaveTextContent('반창고를 붙여 줄게요.');
+  });
+
+  it('키오스크: 메뉴 고르기 → 먹는 곳 → 카드 결제 → 주문 번호', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await user.click(screen.getByRole('button', { name: /꼬마 키오스크/ }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    expect(line()).toBe('햄버거 한 개 주문해 주세요. 집에 가져갈 거예요.');
+    await user.click(screen.getByRole('button', { name: '피자 담기' }));
+    await user.click(screen.getByRole('button', { name: '주문하기' }));
+    expect(line()).toBe('피자는 안 시켰어요. 햄버거를 찾아볼까요?');
+    await user.click(screen.getByRole('button', { name: '피자 하나 빼기' }));
+    await user.click(screen.getByRole('button', { name: '햄버거 담기' }));
+    await user.click(screen.getByRole('button', { name: '주문하기' }));
+    expect(screen.getByText('어디에서 드세요?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /먹고 가요/ }));
+    expect(line()).toContain('"집에 가져갈 거예요."라고 했어요');
+    await user.click(screen.getByRole('button', { name: /가져가요/ }));
+    await user.click(screen.getByRole('button', { name: '카드 넣기' }));
+    expect(screen.getByRole('dialog', { name: '주문 완료!' })).toHaveTextContent(/주문 번호 \d+번이에요\. 햄버거 한 개, 혼자서 주문했어요\./);
+  });
+
+  it('키오스크(말로 주문): 키오스크에 말하면 주문을 받아요', async () => {
+    const { recognizer, speak } = fakeMic();
+    const user = userEvent.setup();
+    render(<App rng={zero} recognizer={recognizer} />);
+    await user.click(screen.getByRole('button', { name: /꼬마 키오스크/ }));
+    await user.click(screen.getByRole('button', { name: /말로 주문해요/ }));
+    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
+    expect(screen.getByText('말로 주문하는 키오스크')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /눌러서 말하기/ }));
+    await user.click(screen.getByRole('button', { name: /마이크 켜기/ }));
+    speak('햄버거 하나 주세요');
+    expect(screen.getByRole('dialog', { name: '잘 말했어요!' })).toBeInTheDocument();
+  });
+});

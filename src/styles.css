@@ -295,3 +295,57 @@ main { max-width: 1100px; margin: 0 auto; min-height: 100dvh; padding: 16px; dis
   .celebrate-card { padding: 22px 18px; }
   .celebrate-card h2 { font-size: 36px; }
 }
+
+/* ── 병원 놀이 ── */
+.symptom-pic { font-size: 96px; line-height: 1; }
+.symptom-pic.small { font-size: 44px; }
+.clinic .shelf { background: #EEF6FB; border-color: #CFE0EC; }
+.clinic .plank { background: #9CB8CC; }
+.clinic .item { border-color: #CFE0EC; box-shadow: 0 5px 0 #CFE0EC; }
+.clinic-want { background: #EEF6FB; border-color: #CFE0EC; }
+
+/* ── 키오스크 놀이 ── */
+.kiosk { flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 10px; background: #2B3A4A; border-radius: 30px; padding: 14px; box-shadow: 0 8px 0 #1C2531; }
+.kiosk-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: #fff; }
+.kiosk-brand { font-size: 24px; }
+.kiosk-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; }
+.kiosk-steps li { background: #3E5165; color: #C9D6E3; padding: 5px 12px; border-radius: 999px; }
+.kiosk-steps li.now { background: var(--star); color: #3A2A00; }
+.kiosk-steps li.done { background: #2E8B57; color: #fff; }
+.kiosk-menu { display: flex; flex-direction: column; gap: 10px; }
+.kiosk-menu .tab { border-color: #3E5165; background: #E7F5FF; }
+.kiosk-menu .tab[aria-pressed='true'] { background: var(--star); border-color: var(--star); }
+.kiosk-menu .shelf { background: #F4F8FB; border-color: #F4F8FB; }
+.kiosk-menu .plank { display: none; }
+.kiosk-menu .item { border-color: #DDE6EE; box-shadow: 0 4px 0 #DDE6EE; }
+.kiosk-cart { background: #fff; border-radius: 22px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.kiosk-cart ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kiosk-cart li { display: flex; align-items: center; gap: 8px; background: #F3F7FB; border-radius: 16px; padding: 6px 10px; }
+.kiosk-cart .basket-empty { margin: 6px 0; }
+.kiosk-panel { background: #fff; border-radius: 22px; padding: 22px 16px; display: flex; flex-direction: column; align-items: center; gap: 16px; min-height: 320px; justify-content: center; }
+.kiosk-q { margin: 0; font-size: clamp(28px, 5vw, 40px); color: var(--blue); }
+.kiosk-choices { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; width: 100%; }
+.kiosk-choice { flex: 1 1 200px; max-width: 280px; min-height: 160px; border: 4px solid #DDE6EE; border-radius: 26px; background: #F4F8FB; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 30px; box-shadow: 0 6px 0 #DDE6EE; }
+.kiosk-choice span { font-size: 64px; line-height: 1; }
+.kiosk-choice:active { transform: translateY(3px); box-shadow: 0 3px 0 #DDE6EE; }
+.kiosk-card { position: relative; border: 0; background: #F4F8FB; border-radius: 26px; padding: 26px 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 24px; box-shadow: 0 6px 0 #DDE6EE; }
+.kiosk-card .card-slot { width: 150px; height: 14px; border-radius: 7px; background: #2B3A4A; }
+.kiosk-card .card { font-size: 84px; line-height: 1; transition: transform .5s ease-in; }
+.kiosk-card.paid .card { transform: translateY(-44px) scale(.7); opacity: .4; }
+.kiosk-card b { font-weight: 400; color: var(--go-shadow); }
+@media (prefers-reduced-motion: reduce) { .kiosk-card .card { transition: none; } }
+@media (max-width: 600px) {
+  .kiosk { padding: 10px; border-radius: 22px; }
+  .kiosk-brand { font-size: 20px; }
+  .kiosk-choice { min-height: 120px; font-size: 24px; }
+  .symptom-pic { font-size: 72px; }
+}
+.kiosk-menu .shelf-sign { display: none; }
+/* 좁은 화면: 가게 이름이 길면 손님 길을 아랫줄로 내립니다 */
+.top { flex-wrap: wrap; gap: 4px 10px; }
+.top .link { white-space: nowrap; }
+.top-title { white-space: nowrap; }
+@media (max-width: 600px) {
+  .top-title { font-size: 22px; }
+  .top .road { flex-basis: 100%; justify-content: center; padding-bottom: 4px; }
+}

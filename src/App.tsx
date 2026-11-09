@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animal, Pic } from './Art';
+import { complaintText, judgeCare, judgeComplaint, makeVisit, type Visit } from './clinic';
 import {
-  AGES, aislesFor, countWord, judge, judgeSpoken, makeOrder, orderList, orderText, shownItems, unitOf,
-  type Age, type Mode, type Order, type Shop, type Tray, type Verdict,
+  AGES, aislesFor, countWord, judge, judgeSpoken, kindOf, makeOrder, orderList, orderText, shownItems, unitOf,
+  type Age, type Item, type Kind, type Mode, type Order, type Shop, type Tray, type Verdict,
 } from './game';
+import { asksWhere, judgeWhere, kioskAsk, makeKioskOrder, orderNumber, WHERE, type KioskOrder, type Where } from './kiosk';
 import { loadStore, saveStore, type Store } from './shop';
 import { browserRecognizer, hush, say, sayIfQuiet, setVoice, type Listening, type Recognizer } from './speech';
 import Teacher from './Teacher';
@@ -31,19 +33,29 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   const [screen, setScreen] = useState<Screen>('start');
   const [round, setRound] = useState(1);
   const [order, setOrder] = useState<Order | null>(null);
+  const [visit, setVisit] = useState<Visit | null>(null);
+  const kind = kindOf(shop);
 
   useEffect(() => hush, []);
 
+  const deal = (m: Mode) => {
+    if (kind === 'clinic') setVisit(makeVisit(age, rng, visit ?? undefined, shop));
+    else if (kind === 'kiosk') setOrder(makeKioskOrder(m, age, rng, order ?? undefined, shop));
+    else setOrder(makeOrder(m, age, rng, order ?? undefined, shop));
+  };
   const start = (m: Mode = mode) => {
     setMode(m);
     setRound(1);
-    setOrder(makeOrder(m, age, rng, undefined, shop));
+    setOrder(null); setVisit(null);
+    if (kind === 'clinic') setVisit(makeVisit(age, rng, undefined, shop));
+    else if (kind === 'kiosk') setOrder(makeKioskOrder(m, age, rng, undefined, shop));
+    else setOrder(makeOrder(m, age, rng, undefined, shop));
     setScreen('play');
   };
   const next = () => {
     if (round >= rounds) { hush(); setScreen('done'); return; }
     setRound(round + 1);
-    setOrder(makeOrder(mode, age, rng, order ?? undefined, shop));
+    deal(mode);
   };
   const home = () => { hush(); setScreen('start'); };
   const leaveTeacher = () => { setPreview(null); setPicked(null); setScreen('start'); };
@@ -60,13 +72,27 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
     return <Teacher store={store} draft={preview} onSave={saveShops} onClose={leaveTeacher}
       onPreview={d => { setPreview(d); setPicked(null); setScreen('start'); }} />;
   }
-  if (screen === 'done') return <Done mode={mode} rounds={rounds} customers={shop.customers} onAgain={() => start()} onHome={home} />;
-  if (screen === 'play' && order) {
-    const top = <Top title={shop.name} round={round} rounds={rounds} customer={order.customer.id} onHome={home} />;
-    return mode === 'clerk'
-      ? <ClerkPlay key={round} top={top} shop={shop} order={order} age={age} last={round >= rounds} onNext={next} />
-      : <CustomerPlay key={round} top={top} shop={shop} order={order} age={age} last={round >= rounds} onNext={next}
-          recognizer={recognizer} micOn={micOn} micAgreed={micAgreed} onAgree={() => setMicAgreed(true)} />;
+  if (screen === 'done') return <Done kind={kind} mode={mode} rounds={rounds} customers={shop.customers} onAgain={() => start()} onHome={home} />;
+  const guest = kind === 'clinic' ? visit?.customer : order?.customer;
+  if (screen === 'play' && guest) {
+    const top = <Top title={shop.name} round={round} rounds={rounds} customer={guest.id} onHome={home} />;
+    const last = round >= rounds;
+    const talk = { top, age, last, onNext: next, recognizer, micOn, micAgreed, onAgree: () => setMicAgreed(true) };
+    if (kind === 'clinic' && visit) {
+      return mode === 'clerk'
+        ? <ClinicPlay key={round} top={top} shop={shop} visit={visit} age={age} last={last} onNext={next} />
+        : <PatientPlay key={round} {...talk} shop={shop} visit={visit} />;
+    }
+    if (kind === 'kiosk' && order) {
+      return mode === 'clerk'
+        ? <KioskPlay key={round} top={top} shop={shop} order={order as KioskOrder} age={age} last={last} onNext={next} />
+        : <CustomerPlay key={round} {...talk} shop={shop} order={order} kiosk />;
+    }
+    if (order) {
+      return mode === 'clerk'
+        ? <ClerkPlay key={round} top={top} shop={shop} order={order} age={age} last={last} onNext={next} />
+        : <CustomerPlay key={round} {...talk} shop={shop} order={order} />;
+    }
   }
   return (
     <>
@@ -168,6 +194,69 @@ function Bubble({ who, line, sub, onListen }: { who: string; line: string; sub?:
   );
 }
 
+/** 진열대: 통로 탭과 칸별 물건 버튼. 가게·병원·키오스크가 함께 씁니다. */
+function Shelf({ shop, aisles, aisle, setAisle, onPut, disabled, verb = '담기', label = '진열대', className = 'shelf-area' }: {
+  shop: Shop; aisles: string[]; aisle: string; setAisle: (id: string) => void; onPut: (id: string) => void; disabled: boolean;
+  verb?: string; label?: string; className?: string;
+}) {
+  const shown = shownItems(shop).filter(i => i.aisle === aisle);
+  const shelves = [...new Set(shown.map(i => i.shelf))];
+  return (
+    <section className={className} aria-label={label}>
+      {aisles.length > 1 && (
+        <div className="tabs">
+          {shop.aisles.filter(a => aisles.includes(a.id)).map(a => (
+            <button type="button" key={a.id} className="tab" aria-pressed={aisle === a.id} onClick={() => setAisle(a.id)}>{a.label}</button>
+          ))}
+        </div>
+      )}
+      <div className="shelf">
+        {shelves.map(s => (
+          <div key={s} className="shelf-row">
+            <p className="shelf-sign">{s}</p>
+            <div className="shelf-items">
+              {shown.filter(i => i.shelf === s).map(i => (
+                <button type="button" key={i.id} className="item" aria-label={`${i.name} ${verb}`} onClick={() => onPut(i.id)} disabled={disabled}>
+                  <Pic pic={i.pic} size={68} />
+                  <span>{i.name}</span>
+                </button>
+              ))}
+            </div>
+            <div className="plank" aria-hidden="true" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** 담은 물건 목록 (장바구니·진료 가방·주문 목록) */
+function TrayList({ items, tray, age, onMinus, disabled, counts = true }: {
+  items: Item[]; tray: Tray; age: Age; onMinus: (id: string) => void; disabled: boolean; counts?: boolean;
+}) {
+  return (
+    <ul>
+      {items.filter(i => tray[i.id]).map(i => (
+        <li key={i.id}>
+          <Pic pic={i.pic} size={36} />
+          <span className="b-name">{i.name}</span>
+          {counts && age !== '7' && <span className="dots" aria-hidden="true">{Array.from({ length: tray[i.id] }, (_, k) => <i key={k} />)}</span>}
+          {counts && <span className="b-count">{countWord(tray[i.id])} {unitOf(i)}</span>}
+          <button type="button" className="minus" aria-label={`${i.name} 하나 빼기`} onClick={() => onMinus(i.id)} disabled={disabled}>−</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 쟁반에 하나 더하기 / 하나 빼기 */
+const addOne = (tray: Tray, id: string, max = Infinity): Tray => ({ ...tray, [id]: Math.min(max, (tray[id] ?? 0) + 1) });
+const takeOne = (tray: Tray, id: string): Tray => {
+  const t = { ...tray, [id]: (tray[id] ?? 0) - 1 };
+  if (t[id] <= 0) delete t[id];
+  return t;
+};
+
 // ── 점원 놀이: 손님 말을 듣고 물건을 골라 건네기 ──
 
 function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNode; shop: Shop; order: Order; age: Age; last: boolean; onNext: () => void }) {
@@ -193,16 +282,14 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
 
   const put = (id: string) => {
     if (solved) return;
-    setTray({ ...tray, [id]: (tray[id] ?? 0) + 1 }); setVerdict(null);
+    setTray(addOne(tray, id)); setVerdict(null);
     // 누른 물건 이름을 들려줘 낱말과 그림을 잇습니다. 손님이 말하는 중이면 끊지 않습니다.
     const it = items.find(i => i.id === id);
     if (it) sayIfQuiet(it.name);
   };
   const takeOut = (id: string) => {
     if (solved) return;
-    const t = { ...tray, [id]: (tray[id] ?? 0) - 1 };
-    if (t[id] <= 0) delete t[id];
-    setTray(t); setVerdict(null);
+    setTray(takeOne(tray, id)); setVerdict(null);
   };
   const give = () => {
     const v = judge(order, tray, items);
@@ -211,38 +298,11 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
     const hint = !v.ok && m === (age === '3' ? 1 : 2) ? ' 그림을 보고 같이 찾아봐요.' : '';
     say(v.say + hint);
   };
-  const shown = items.filter(i => i.aisle === aisle);
-  const shelves = [...new Set(shown.map(i => i.shelf))];
-
   return (
     <main className="play">
       {top}
       <div className="play-body">
-        <section className="shelf-area" aria-label="진열대">
-          {aisles.length > 1 && (
-            <div className="tabs">
-              {shop.aisles.filter(a => aisles.includes(a.id)).map(a => (
-                <button type="button" key={a.id} className="tab" aria-pressed={aisle === a.id} onClick={() => setAisle(a.id)}>{a.label}</button>
-              ))}
-            </div>
-          )}
-          <div className="shelf">
-            {shelves.map(s => (
-              <div key={s} className="shelf-row">
-                <p className="shelf-sign">{s}</p>
-                <div className="shelf-items">
-                  {shown.filter(i => i.shelf === s).map(i => (
-                    <button type="button" key={i.id} className="item" aria-label={`${i.name} 담기`} onClick={() => put(i.id)} disabled={solved}>
-                      <Pic pic={i.pic} size={68} />
-                      <span>{i.name}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="plank" aria-hidden="true" />
-              </div>
-            ))}
-          </div>
-        </section>
+        <Shelf shop={shop} aisles={aisles} aisle={aisle} setAisle={setAisle} onPut={put} disabled={solved} />
 
         <section className="side">
           <div className="person">
@@ -265,19 +325,8 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
           )}
           <div className="basket" aria-label="장바구니">
             <p className="basket-title">🧺 장바구니</p>
-            {total === 0 ? <p className="basket-empty">진열대에서 물건을 눌러 담아요</p> : (
-              <ul>
-                {items.filter(i => tray[i.id]).map(i => (
-                  <li key={i.id}>
-                    <Pic pic={i.pic} size={36} />
-                    <span className="b-name">{i.name}</span>
-                    {age !== '7' && <span className="dots" aria-hidden="true">{Array.from({ length: tray[i.id] }, (_, k) => <i key={k} />)}</span>}
-                    <span className="b-count">{countWord(tray[i.id])} {unitOf(i)}</span>
-                    <button type="button" className="minus" aria-label={`${i.name} 하나 빼기`} onClick={() => takeOut(i.id)} disabled={solved}>−</button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {total === 0 ? <p className="basket-empty">진열대에서 물건을 눌러 담아요</p>
+              : <TrayList items={items} tray={tray} age={age} onMinus={takeOut} disabled={solved} />}
           </div>
           {!solved && <button type="button" className="big go" onClick={give} disabled={total === 0}>손님께 드리기</button>}
         </section>
@@ -287,17 +336,283 @@ function ClerkPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNo
   );
 }
 
+// ── 병원 놀이 (의사): 환자 말을 듣고 맞는 도구 고르기 ──
+
+function ClinicPlay({ top, shop, visit, age, last, onNext }: { top: React.ReactNode; shop: Shop; visit: Visit; age: Age; last: boolean; onNext: () => void }) {
+  const aisles = aislesFor('clerk', age, shop);
+  const items = shownItems(shop);
+  const [aisle, setAisle] = useState(aisles[0]);
+  const [tray, setTray] = useState<Tray>({});
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [misses, setMisses] = useState(0);
+  const solved = verdict?.ok === true;
+  const hello = complaintText(visit);
+  const showPics = !solved && misses >= (age === '3' ? 1 : 2);
+  const picked = Object.keys(tray);
+  const right = visit.symptoms.filter(s => picked.includes(s.tool)).length;
+  const wrong = picked.length - right;
+  const mood = solved ? 3 : right > 0 && wrong === 0 ? 2 : 1;
+
+  useEffect(() => { say(hello); }, [hello]);
+
+  // 도구는 한 번씩만 씁니다 (같은 도구를 두 번 눌러도 하나).
+  const put = (id: string) => {
+    if (solved) return;
+    setTray(addOne(tray, id, 1)); setVerdict(null);
+    const it = items.find(i => i.id === id);
+    if (it) sayIfQuiet(it.name);
+  };
+  const takeOut = (id: string) => { if (!solved) { setTray(takeOne(tray, id)); setVerdict(null); } };
+  const use = () => {
+    const v = judgeCare(visit, tray, items);
+    const m = v.ok ? misses : misses + 1;
+    setMisses(m); setVerdict(v);
+    const hint = !v.ok && m === (age === '3' ? 1 : 2) ? ' 아픈 곳 그림을 보고 같이 생각해 봐요.' : '';
+    say(v.say + hint);
+  };
+
+  return (
+    <main className="play clinic">
+      {top}
+      <div className="play-body">
+        <Shelf shop={shop} aisles={aisles} aisle={aisle} setAisle={setAisle} onPut={put} disabled={solved} verb="고르기" label="진료 도구" />
+        <section className="side">
+          <div className="person">
+            <div className="who-col">
+              <Animal id={visit.customer.id} size={96} happy={solved} />
+              <Mood value={mood} />
+            </div>
+            <Bubble who={`${visit.customer.name} 환자`} line={verdict ? verdict.say : hello} sub={verdict && !solved ? hello : undefined}
+              onListen={() => say(verdict ? verdict.say : hello)} />
+          </div>
+          {showPics && (
+            <div className="order-pics" aria-label="아픈 곳 그림">
+              {visit.symptoms.map(s => (
+                <span key={s.id} className="order-pic"><span className="symptom-pic small" aria-hidden="true">{s.pic}</span><b>{s.short}</b></span>
+              ))}
+            </div>
+          )}
+          <div className="basket" aria-label="진료 가방">
+            <p className="basket-title">🧰 진료 가방</p>
+            {picked.length === 0 ? <p className="basket-empty">필요한 도구를 눌러 넣어요</p>
+              : <TrayList items={items} tray={tray} age={age} onMinus={takeOut} disabled={solved} counts={false} />}
+          </div>
+          {!solved && <button type="button" className="big go" onClick={use} disabled={picked.length === 0}>치료해 주기</button>}
+        </section>
+      </div>
+      {solved && <Celebrate animal={visit.customer.id} title="다 나았어요!" line={verdict!.say} next={last ? '오늘 병원 놀이 끝!' : '다음 환자 오세요'} onNext={onNext} />}
+    </main>
+  );
+}
+
+// ── 키오스크 놀이: 친구 부탁대로 메뉴 고르기 → 먹는 곳 → 결제 ──
+
+/** 키오스크 얼굴 (말로 주문하는 키오스크) */
+function KioskFace() {
+  return (
+    <svg width="96" height="108" viewBox="0 0 96 108" aria-hidden="true">
+      <rect x="14" y="4" width="68" height="84" rx="10" fill="#2B3A4A" />
+      <rect x="21" y="12" width="54" height="56" rx="6" fill="#E7F5FF" />
+      <circle cx="38" cy="36" r="4" fill="#2B2235" /><circle cx="58" cy="36" r="4" fill="#2B2235" />
+      <path d="M38 48 Q48 56 58 48" stroke="#2B2235" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <rect x="36" y="74" width="24" height="5" rx="2.5" fill="#7FB7E6" />
+      <rect x="40" y="88" width="16" height="12" fill="#2B3A4A" /><rect x="26" y="100" width="44" height="6" rx="3" fill="#2B3A4A" />
+    </svg>
+  );
+}
+
+type KioskStep = 'menu' | 'where' | 'pay' | 'paid';
+
+function KioskPlay({ top, shop, order, age, last, onNext }: { top: React.ReactNode; shop: Shop; order: KioskOrder; age: Age; last: boolean; onNext: () => void }) {
+  const aisles = aislesFor('clerk', age, shop);
+  const items = shownItems(shop);
+  const [aisle, setAisle] = useState(aisles[0]);
+  const [tray, setTray] = useState<Tray>({});
+  const [step, setStep] = useState<KioskStep>('menu');
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [misses, setMisses] = useState(0);
+  const [num] = useState(() => orderNumber());
+  const hello = kioskAsk(order, age);
+  const name = order.customer.name;
+  const total = Object.values(tray).reduce((a, b) => a + b, 0);
+  const showPics = step === 'menu' && misses >= (age === '3' ? 1 : 2);
+  const done = step === 'paid';
+  const steps: { id: KioskStep; label: string }[] = [
+    { id: 'menu', label: '메뉴 고르기' },
+    ...(asksWhere(age) ? [{ id: 'where' as KioskStep, label: '먹는 곳' }] : []),
+    { id: 'pay', label: '결제하기' },
+  ];
+  const at = done ? steps.length : steps.findIndex(s => s.id === step);
+
+  useEffect(() => { say(hello); }, [hello]);
+
+  const speak = (text: string) => { setVerdict({ ok: false, kind: 'info', say: text }); say(text); };
+  const put = (id: string) => {
+    if (step !== 'menu') return;
+    setTray(addOne(tray, id)); setVerdict(null);
+    const it = items.find(i => i.id === id);
+    if (it) sayIfQuiet(it.name);
+  };
+  const takeOut = (id: string) => { if (step === 'menu') { setTray(takeOne(tray, id)); setVerdict(null); } };
+  const submit = () => {
+    const v = judge(order, tray, items, `${name} 친구`);
+    if (!v.ok) {
+      const m = misses + 1;
+      setMisses(m); setVerdict(v);
+      say(v.say + (m === (age === '3' ? 1 : 2) ? ' 그림을 보고 같이 찾아봐요.' : ''));
+      return;
+    }
+    if (asksWhere(age)) { setStep('where'); speak('메뉴를 잘 골랐어요! 여기서 먹고 갈까요, 가져갈까요?'); }
+    else { setStep('pay'); speak('메뉴를 잘 골랐어요! 이제 카드를 넣어 결제해요.'); }
+  };
+  const pickWhere = (w: Where) => {
+    const v = judgeWhere(order, w);
+    setVerdict(v); say(v.say);
+    if (v.ok) setStep('pay');
+  };
+  const pay = () => {
+    setStep('paid');
+    const text = `띵동! 결제가 끝났어요. 주문 번호는 ${num}번이에요.`;
+    setVerdict({ ok: true, kind: 'ok', say: text }); say(text);
+  };
+
+  return (
+    <main className="play kiosk-play">
+      {top}
+      <div className="play-body">
+        <section className="kiosk" aria-label="키오스크 화면">
+          <div className="kiosk-head">
+            <span className="kiosk-brand">🍔 {shop.name}</span>
+            <ol className="kiosk-steps">
+              {steps.map((s, i) => <li key={s.id} className={i < at ? 'done' : i === at ? 'now' : ''}>{i + 1}. {s.label}</li>)}
+            </ol>
+          </div>
+          {step === 'menu' && (
+            <>
+              <Shelf shop={shop} aisles={aisles} aisle={aisle} setAisle={setAisle} onPut={put} disabled={false} label="메뉴" className="kiosk-menu" />
+              <div className="kiosk-cart" aria-label="주문 목록">
+                <p className="basket-title">🧾 주문 목록</p>
+                {total === 0 ? <p className="basket-empty">메뉴를 눌러 담아요</p>
+                  : <TrayList items={items} tray={tray} age={age} onMinus={takeOut} disabled={false} />}
+                <button type="button" className="big go" onClick={submit} disabled={total === 0}>주문하기</button>
+              </div>
+            </>
+          )}
+          {step === 'where' && (
+            <div className="kiosk-panel">
+              <p className="kiosk-q">어디에서 드세요?</p>
+              <div className="kiosk-choices">
+                {(Object.keys(WHERE) as Where[]).map(w => (
+                  <button type="button" key={w} className="kiosk-choice" onClick={() => pickWhere(w)}>
+                    <span aria-hidden="true">{WHERE[w].pic}</span>{WHERE[w].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {(step === 'pay' || done) && (
+            <div className="kiosk-panel">
+              <p className="kiosk-q">{done ? `주문 번호 ${num}번` : '카드를 넣어 주세요'}</p>
+              <button type="button" className={done ? 'kiosk-card paid' : 'kiosk-card'} onClick={pay} disabled={done} aria-label="카드 넣기">
+                <span className="card-slot" aria-hidden="true" />
+                <span className="card" aria-hidden="true">💳</span>
+                {!done && <b>눌러서 카드 넣기</b>}
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="side">
+          <div className="person">
+            <div className="who-col"><Animal id={order.customer.id} size={96} happy={done} /></div>
+            <Bubble who={`${name} 친구`} line={verdict ? verdict.say : hello} sub={verdict && !done ? `부탁: ${hello}` : undefined}
+              onListen={() => say(verdict ? verdict.say : hello)} />
+          </div>
+          {showPics && (
+            <div className="order-pics" aria-label={`주문 그림: ${hello}`}>
+              {order.lines.map(l => (
+                <span key={l.item.id} className="order-pic">
+                  {Array.from({ length: l.count }, (_, k) => <Pic key={k} pic={l.item.pic} size={l.count > 3 ? 36 : 48} />)}
+                  <b>{l.item.name} {countWord(l.count)} {unitOf(l.item)}</b>
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+      {done && <Celebrate animal={order.customer.id} title="주문 완료!" line={`주문 번호 ${num}번이에요. ${orderList(order)}, 혼자서 주문했어요.`}
+        next={last ? '오늘 키오스크 놀이 끝!' : '다음 친구 부탁 듣기'} onNext={onNext} />}
+    </main>
+  );
+}
+
 // ── 손님 놀이: 점원이 보여 주는 물건을 말로 주문하기 ──
 
 type Hearing = 'idle' | 'notice' | 'listening';
 
-function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, micAgreed, onAgree }: {
-  top: React.ReactNode; shop: Shop; order: Order; age: Age; last: boolean; onNext: () => void;
-  recognizer: Recognizer; micOn: boolean; micAgreed: boolean; onAgree: () => void;
-}) {
-  const ask = shop.greeting;
+type TalkBase = { top: React.ReactNode; age: Age; last: boolean; onNext: () => void; recognizer: Recognizer; micOn: boolean; micAgreed: boolean; onAgree: () => void };
+
+function CustomerPlay({ shop, order, kiosk = false, ...base }: TalkBase & { shop: Shop; order: Order; kiosk?: boolean }) {
+  const { age } = base;
   const items = shownItems(shop);
   const model = orderText(order);
+  const want = (
+    <section className={kiosk ? 'want kiosk-want' : 'want'} aria-label="주문할 물건">
+      <p className="want-title">{kiosk ? '키오스크에 말로 주문해 보세요' : '이 물건을 주문해 보세요'}</p>
+      <div className="want-lines">
+        {order.lines.map(l => (
+          <div key={l.item.id} className="want-line">
+            <div className="want-items">
+              {Array.from({ length: l.count }, (_, k) => <Pic key={k} pic={l.item.pic} size={l.count > 3 ? 72 : 96} />)}
+            </div>
+            <p className="want-name">{l.item.name}{age !== '3' && <> · <b>{countWord(l.count)} {unitOf(l.item)}</b></>}</p>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="pill model" onClick={() => say(model)}>👂 어떻게 말하는지 듣기</button>
+      {age !== '7' && <p className="model-text">"{model}"</p>}
+    </section>
+  );
+  return (
+    <TalkPlay {...base} face={kiosk ? null : order.customer.id} who={kiosk ? '말로 주문하는 키오스크' : `${order.customer.name} 점원`}
+      ask={shop.greeting} model={model} want={want} check={t => judgeSpoken(order, t, age, items)}
+      okSay={`네! ${orderList(order)} ${kiosk ? '주문했어요.' : '드릴게요.'}`}
+      title="잘 말했어요!" nextLabel={kiosk ? '다음 주문 하러 가요' : '다음 물건 사러 가요'} />
+  );
+}
+
+// ── 병원 놀이 (환자): 그림을 보고 어디가 아픈지 말하기 ──
+
+function PatientPlay({ shop, visit, ...base }: TalkBase & { shop: Shop; visit: Visit }) {
+  const { age } = base;
+  const model = complaintText(visit);
+  const want = (
+    <section className="want clinic-want" aria-label="아픈 곳">
+      <p className="want-title">나는 어디가 아플까요?</p>
+      <div className="want-lines">
+        {visit.symptoms.map(s => (
+          <div key={s.id} className="want-line">
+            <span className="symptom-pic" aria-hidden="true">{s.pic}</span>
+            {age !== '7' && <p className="want-name">{s.short}</p>}
+          </div>
+        ))}
+      </div>
+      <button type="button" className="pill model" onClick={() => say(model)}>👂 어떻게 말하는지 듣기</button>
+      {age === '3' && <p className="model-text">"{model}"</p>}
+    </section>
+  );
+  return (
+    <TalkPlay {...base} face="doctor" who="의사 선생님" ask={shop.greeting} model={model} want={want}
+      check={t => judgeComplaint(visit, t, age)}
+      okSay={`많이 아팠죠? ${visit.symptoms.map(s => s.treat).join(' ')} 금방 나을 거예요.`}
+      title="잘 말했어요!" nextLabel="다음 환자 차례예요" />
+  );
+}
+
+/** 말하기 놀이 화면: 아이가 말하면 상대(점원·의사·키오스크)가 대답합니다. */
+function TalkPlay({ top, age, last, onNext, recognizer, micOn, micAgreed, onAgree, face, who, ask, model, want, check, okSay, title, nextLabel }: TalkBase & {
+  face: string | null; who: string; ask: string; model: string; want: React.ReactNode; check: (text: string) => Verdict; okSay: string; title: string; nextLabel: string;
+}) {
   const [line, setLine] = useState(ask);
   const [heard, setHeard] = useState('');
   const [hearing, setHearing] = useState<Hearing>('idle');
@@ -321,7 +636,7 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
       onInterim: t => setHeard(t),
       onFinal: alts => {
         if (!alts.length) { answer({ ok: false, kind: 'unheard', say: '잘 못 들었어요. 마이크 가까이에서 한 번 더 말해 볼까요?' }); return; }
-        const verdicts = alts.map(a => ({ a, v: judgeSpoken(order, a, age, items) }));
+        const verdicts = alts.map(a => ({ a, v: check(a) }));
         const best = verdicts.find(x => x.v.ok) ?? verdicts[0];
         setHeard(best.a);
         answer(best.v);
@@ -339,32 +654,18 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
     else answer({ ok: false, kind: 'start-failed', say: '마이크를 켜지 못했어요. 다시 눌러 볼까요?' }, false);
   };
   const stop = () => listening.current?.stop();
-  const teacherOk = () => answer({ ok: true, kind: 'teacher', say: `네! ${orderList(order)} 드릴게요.` });
+  const teacherOk = () => answer({ ok: true, kind: 'teacher', say: okSay });
 
   return (
     <main className="play">
       {top}
       <div className="play-body">
-        <section className="want" aria-label="주문할 물건">
-          <p className="want-title">이 물건을 주문해 보세요</p>
-          <div className="want-lines">
-            {order.lines.map(l => (
-              <div key={l.item.id} className="want-line">
-                <div className="want-items">
-                  {Array.from({ length: l.count }, (_, k) => <Pic key={k} pic={l.item.pic} size={l.count > 3 ? 72 : 96} />)}
-                </div>
-                <p className="want-name">{l.item.name}{age !== '3' && <> · <b>{countWord(l.count)} {unitOf(l.item)}</b></>}</p>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="pill model" onClick={() => say(model)}>👂 어떻게 말하는지 듣기</button>
-          {age !== '7' && <p className="model-text">"{model}"</p>}
-        </section>
+        {want}
 
         <section className="side">
           <div className="person">
-            <Animal id={order.customer.id} size={96} happy={solved} />
-            <Bubble who={`${order.customer.name} 점원`} line={line} onListen={() => say(line)} />
+            {face ? <Animal id={face} size={96} happy={solved} /> : <KioskFace />}
+            <Bubble who={who} line={line} onListen={() => say(line)} />
           </div>
 
           {hearing === 'notice' ? (
@@ -392,12 +693,23 @@ function CustomerPlay({ top, shop, order, age, last, onNext, recognizer, micOn, 
           {!solved && <button type="button" className="teacher-ok" onClick={teacherOk}>선생님: 잘 말했어요</button>}
         </section>
       </div>
-      {solved && <Celebrate animal={order.customer.id} title="잘 말했어요!" line={line} next={last ? '오늘 가게 놀이 끝!' : '다음 물건 사러 가요'} onNext={onNext} />}
+      {solved && <Celebrate animal={face ?? 'rabbit'} title={title} line={line} next={last ? '오늘 놀이 끝!' : nextLabel} onNext={onNext} />}
     </main>
   );
 }
 
 // ── 첫 화면, 끝 화면 ──
+
+/** 놀이 방식마다 첫 화면의 역할 이름 (clerk: 듣고 고르기, customer: 말하기) */
+const ROLES: Record<Kind, Record<Mode, { title: string; sub: string }>> = {
+  shop: { clerk: { title: '내가 점원이에요', sub: '손님 말을 듣고 물건을 골라요' }, customer: { title: '내가 손님이에요', sub: '그림을 보고 말로 주문해요' } },
+  clinic: { clerk: { title: '내가 의사예요', sub: '아픈 곳을 듣고 도구를 골라요' }, customer: { title: '내가 환자예요', sub: '어디가 아픈지 말해요' } },
+  kiosk: { clerk: { title: '눌러서 주문해요', sub: '친구 부탁대로 화면을 눌러요' }, customer: { title: '말로 주문해요', sub: '키오스크에 말로 주문해요' } },
+};
+const AGE_DETAIL: Partial<Record<Kind, Record<Age, string>>> = {
+  clinic: { '3': '아픈 곳 한 군데', '5': '아픈 곳 한두 군데', '7': '아픈 곳 두 군데' },
+  kiosk: { '3': '메뉴 · 결제', '5': '먹는 곳도 골라요', '7': '두 가지 · 먹는 곳' },
+};
 
 const ROOFS = ['#E2502E', '#2E8B57', '#B5651D', '#3D6FD8', '#8E44AD', '#D6457A', '#2F8F9D', '#E08A1E'];
 
@@ -452,17 +764,19 @@ function Start({ shops, shop, onPick, mode, setMode, age, setAge, onStart, onTea
           <h2 style={{ color: roofOf(cur) }}>{shop.name}</h2>
           <p className="pick-q">누가 되어 볼까요?</p>
           <div className="roles">
-            <button type="button" className="role" aria-pressed={mode === 'clerk'} onClick={() => { setMode('clerk'); say('내가 점원이에요. 손님 말을 듣고 물건을 골라요.'); }}>
-              <b>내가 점원이에요</b><small>손님 말을 듣고 물건을 골라요</small>
-            </button>
-            <button type="button" className="role" aria-pressed={mode === 'customer'} onClick={() => { setMode('customer'); say('내가 손님이에요. 그림을 보고 말로 주문해요.'); }}>
-              <b>내가 손님이에요</b><small>그림을 보고 말로 주문해요</small>
-            </button>
+            {(['clerk', 'customer'] as Mode[]).map(m => {
+              const r = ROLES[kindOf(shop)][m];
+              return (
+                <button type="button" key={m} className="role" aria-pressed={mode === m} onClick={() => { setMode(m); say(`${r.title}. ${r.sub}.`); }}>
+                  <b>{r.title}</b><small>{r.sub}</small>
+                </button>
+              );
+            })}
           </div>
           <div className="ages" role="group" aria-label="나이">
             {AGES.map(a => (
               <button type="button" key={a.id} className="age" aria-pressed={age === a.id} onClick={() => { setAge(a.id); say(AGE_SAY[a.id]); }}>
-                <b>{a.label}</b><small>{a.detail}</small>
+                <b>{a.label}</b><small>{AGE_DETAIL[kindOf(shop)]?.[a.id] ?? a.detail}</small>
               </button>
             ))}
           </div>
@@ -475,12 +789,21 @@ function Start({ shops, shop, onPick, mode, setMode, age, setAge, onStart, onTea
   );
 }
 
-function Done({ mode, rounds, customers, onAgain, onHome }: { mode: Mode; rounds: number; customers: string[]; onAgain: () => void; onHome: () => void }) {
+function Done({ kind, mode, rounds, customers, onAgain, onHome }: { kind: Kind; mode: Mode; rounds: number; customers: string[]; onAgain: () => void; onHome: () => void }) {
   // 결과보다 한 일을 짚어 칭찬하고, 화면 밖 진짜 놀이로 이어 갑니다.
-  const text = mode === 'clerk'
-    ? `손님 ${countWord(rounds)} 명의 말을 끝까지 듣고, 물건을 하나씩 세어서 담았어요.`
-    : `그림을 보고 ${countWord(rounds)} 번이나 또박또박 주문했어요.`;
-  const next = '이제 친구랑 진짜 가게 놀이를 해 볼까요? 한 명은 점원, 한 명은 손님이에요.';
+  const n = countWord(rounds);
+  const TEXT: Record<Kind, Record<Mode, string>> = {
+    shop: { clerk: `손님 ${n} 명의 말을 끝까지 듣고, 물건을 하나씩 세어서 담았어요.`, customer: `그림을 보고 ${n} 번이나 또박또박 주문했어요.` },
+    clinic: { clerk: `아픈 친구 ${n} 명의 말을 잘 듣고, 꼭 맞는 도구를 골랐어요.`, customer: `어디가 아픈지 ${n} 번이나 또박또박 말했어요.` },
+    kiosk: { clerk: `친구 부탁을 듣고 ${n} 번이나 혼자 주문했어요. 메뉴 고르기부터 결제까지 다 했어요.`, customer: `키오스크에 ${n} 번이나 또박또박 말로 주문했어요.` },
+  };
+  const NEXT: Record<Kind, string> = {
+    shop: '이제 친구랑 진짜 가게 놀이를 해 볼까요? 한 명은 점원, 한 명은 손님이에요.',
+    clinic: '이제 친구랑 진짜 병원 놀이를 해 볼까요? 한 명은 의사, 한 명은 환자예요.',
+    kiosk: '다음에 어른과 가게에 가면 키오스크 화면을 같이 살펴볼까요?',
+  };
+  const text = TEXT[kind][mode];
+  const next = NEXT[kind];
   useEffect(() => { say(`${text} ${next}`); }, [text]);
   return (
     <main className="start done">

@@ -11,7 +11,11 @@ export const UNITS = ['개', '병', '봉지', '송이', '자루', '장', '통', 
 export type Item = { id: string; name: string; aisle: string; shelf: string; unit?: string; aliases?: string[]; pic?: string; hidden?: boolean };
 export type Aisle = { id: string; label: string };
 /** 선생님이 고칠 수 있는 놀이 주제 하나 */
-export type Shop = { id: string; name: string; greeting: string; aisles: Aisle[]; items: Item[]; customers: string[]; rounds: number };
+/** 놀이 방식: 가게(물건+개수), 병원(아픈 곳 → 도구), 키오스크(메뉴 → 먹는 곳 → 결제) */
+export type Kind = 'shop' | 'clinic' | 'kiosk';
+export const KINDS: readonly Kind[] = ['shop', 'clinic', 'kiosk'];
+export type Shop = { id: string; name: string; greeting: string; aisles: Aisle[]; items: Item[]; customers: string[]; rounds: number; kind?: Kind };
+export const kindOf = (shop: Shop): Kind => shop.kind ?? 'shop';
 
 export const AISLES: Aisle[] = [
   { id: 'food', label: '1번 통로 · 먹거리' },
@@ -152,7 +156,8 @@ const countAloud = (item: Item, have: number) => {
 export type Verdict = { ok: boolean; say: string; kind: string };
 
 /** 점원 놀이: 쟁반을 보고 손님이 할 말. 틀려도 혼내지 않고 고칠 점만 알려 줍니다. */
-export function judge(order: Order, tray: Tray, items: readonly Item[] = ITEMS): Verdict {
+/** who: 주문한 사람 (가게는 손님, 키오스크는 부탁한 친구) */
+export function judge(order: Order, tray: Tray, items: readonly Item[] = ITEMS, who = '손님'): Verdict {
   const total = Object.values(tray).reduce((a, b) => a + b, 0);
   if (total === 0) return { ok: false, kind: 'empty', say: '장바구니가 비어 있어요. 물건을 눌러서 담아 주세요.' };
   const extra = items.find(i => (tray[i.id] ?? 0) > 0 && !order.lines.some(l => l.item.id === i.id));
@@ -160,7 +165,7 @@ export function judge(order: Order, tray: Tray, items: readonly Item[] = ITEMS):
   for (const l of order.lines) {
     const have = tray[l.item.id] ?? 0;
     const u = unitOf(l.item);
-    const asked = `손님은 ${countWord(l.count)} ${u} 달라고 했어요.`;
+    const asked = `${josa(who, '은', '는')} ${countWord(l.count)} ${u} 달라고 했어요.`;
     if (have < l.count) {
       const say = have
         ? `${countAloud(l.item, have)} ${asked} ${countWord(l.count - have)} ${u} 더 담아 볼까요?`
@@ -185,7 +190,7 @@ const NUM_AFTER = new RegExp(`^(?:을|를|은|는|이|가|도|만)?(?:좀)?(?:${
 const NUM_BEFORE = new RegExp(`(?:${WITH_UNIT}|${ALONE})(?:의|짜리)?$`);
 const CORRECTION = new RegExp(`아니(?:요|야)?(?:${WITH_UNIT}|${ALONE})`);
 const toNum = (m: RegExpMatchArray | null) => { const w = m?.[1] ?? m?.[2]; return w == null ? null : (NUM[w] ?? Number(w)); };
-const norm = (s: string) => s.replace(/[\s.,!?~"'“”]/g, '');
+export const norm = (s: string) => s.replace(/[\s.,!?~"'“”]/g, '');
 
 /** 말한 문장에서 물건과 개수를 찾습니다. 개수를 말하지 않았으면 null. */
 export function parseSpoken(text: string, items: readonly Item[] = ITEMS): Map<string, number | null> {

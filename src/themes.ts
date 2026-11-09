@@ -109,7 +109,35 @@ const CLOTHES: Shop = {
   ],
 };
 
-export const BUILTIN: Shop[] = [SUPER, FRUIT, BAKERY, STATIONERY, SNACK, FLOWER, ICECREAM, CLOTHES];
+const CLINIC: Shop = {
+  id: 'clinic', kind: 'clinic', name: '꼬마 병원', greeting: '어서 오세요! 어디가 아파서 왔어요?', customers: all, rounds: 5,
+  aisles: [{ id: 'h1', label: '진료 도구' }],
+  items: [
+    it('h-bandage', '반창고', 'h1', '붙이고 대는 것', '🩹', '개', ['밴드', '대일밴드']),
+    it('h-ice', '얼음주머니', 'h1', '붙이고 대는 것', '🧊', '개', ['얼음', '얼음팩']),
+    it('h-tissue', '휴지', 'h1', '붙이고 대는 것', 'tissue', '개', ['티슈', '화장지']),
+    it('h-thermo', '체온계', 'h1', '재고 살피는 것', '🌡️', '개', ['온도계']),
+    it('h-stetho', '청진기', 'h1', '재고 살피는 것', '🩺', '개'),
+    it('h-light', '손전등', 'h1', '재고 살피는 것', '🔦', '개', ['후레쉬', '플래시']),
+  ],
+};
+
+const KIOSK: Shop = {
+  id: 'kiosk', kind: 'kiosk', name: '꼬마 키오스크', greeting: '어서 오세요! 말로 주문해 주세요.', customers: all, rounds: 5,
+  aisles: [{ id: 'm1', label: '버거·치킨' }, { id: 'm2', label: '음료·디저트' }],
+  items: [
+    it('m-burger', '햄버거', 'm1', '버거·치킨', '🍔', '개', ['버거', '햄버거세트']),
+    it('m-chicken', '치킨', 'm1', '버거·치킨', '🍗', '조각', ['닭다리', '통닭']),
+    it('m-pizza', '피자', 'm1', '버거·치킨', '🍕', '조각'),
+    it('m-fries', '감자튀김', 'm1', '버거·치킨', '🍟', '개', ['프렌치프라이', '감튀']),
+    it('m-cola', '콜라', 'm2', '음료·디저트', '🥤', '잔', ['사이다', '음료수']),
+    it('m-juice', '주스', 'm2', '음료·디저트', 'juice', '잔', ['쥬스', '오렌지주스']),
+    it('m-icecream', '아이스크림', 'm2', '음료·디저트', '🍦', '개', ['소프트콘']),
+    it('m-donut', '도넛', 'm2', '음료·디저트', '🍩', '개', ['도너츠', '도나츠']),
+  ],
+};
+
+export const BUILTIN: Shop[] = [SUPER, FRUIT, BAKERY, STATIONERY, SNACK, FLOWER, ICECREAM, CLOTHES, CLINIC, KIOSK];
 export const isBuiltin = (id: string) => BUILTIN.some(s => s.id === id);
 
 /** 붙여 넣은 물건 이름으로 그림을 짐작할 때 씁니다 ("사과" → 사과 그림). */
