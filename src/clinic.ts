@@ -2,7 +2,8 @@
 //  - 의사 놀이: 환자(AI)가 어디가 아픈지 말하면 아이가 맞는 도구를 골라 씁니다 (듣기·까닭 생각하기).
 //  - 환자 놀이: 그림을 보고 아이가 어디가 아픈지 말로 알립니다 (말하기).
 // 약·주사는 넣지 않습니다. 약은 어른이 주실 때만 먹는다는 생활 안전 규칙과 겹치지 않게 하려는 것입니다.
-import { CUSTOMERS, josa, joinAnd, norm, shownItems, type Age, type Customer, type Item, type Shop, type Tray, type Verdict } from './game';
+import { soundsLike } from './sound';
+import { CUSTOMERS, isLittle, josa, joinAnd, norm, shownItems, type Age, type Customer, type Item, type Shop, type Tray, type Verdict } from './game';
 
 export type Symptom = {
   id: string;
@@ -57,8 +58,8 @@ export const symptomsFor = (shop: Shop) => {
   return SYMPTOMS.filter(s => tools.has(s.tool));
 };
 
-/** 만 3세 한 군데, 만 4세 한두 군데, 만 5세 두 군데 */
-const KINDS: Record<Age, number[]> = { '3': [1], '5': [1, 2], '7': [2] };
+/** 처음 해요·만 3세 한 군데, 만 4세 한두 군데, 만 5세 두 군데 */
+const KINDS: Record<Age, number[]> = { '1': [1], '3': [1], '5': [1, 2], '7': [2] };
 
 export function makeVisit(age: Age, rng: () => number = Math.random, previous?: Visit, shop?: Shop): Visit {
   const chosen = CUSTOMERS.filter(c => !shop || shop.customers.includes(c.id));
@@ -103,17 +104,19 @@ export function judgeCare(visit: Visit, tray: Tray, items: readonly Item[]): Ver
 }
 
 /** 환자 놀이: 아이 말을 듣고 의사가 할 말. */
-export function judgeComplaint(visit: Visit, text: string, age: Age): Verdict {
+/** lenient: 아픈 곳을 하나만 말해도 맞다고 봅니다 ('처음 해요' 단계, 두 번 막힌 뒤). */
+export function judgeComplaint(visit: Visit, text: string, age: Age, lenient = age === '1'): Verdict {
   const said = norm(text);
   const hit = (s: Symptom) => s.words.some(w => said.includes(w));
-  const told = visit.symptoms.filter(hit);
+  // 그림에 나온 아픈 곳은 발음이 조금 달라도 알아듣습니다 ("콧물"→"꼰물", "기침"→"기딤").
+  const told = visit.symptoms.filter(s => hit(s) || s.words.some(w => soundsLike(said, w)));
   if (!told.length) {
     const other = SYMPTOMS.some(s => !visit.symptoms.includes(s) && hit(s));
     return other
       ? { ok: false, kind: 'wrong-place', say: '음, 그림을 다시 볼까요? 어디가 아픈지 말해 줘요.' }
       : { ok: false, kind: 'nothing', say: '어디가 아파서 왔어요? 그림을 보고 말해 봐요.' };
   }
-  if (told.length < visit.symptoms.length) return { ok: false, kind: 'missing', say: '또 어디가 아파요? 그림을 다시 봐요.' };
-  const tip = age !== '3' && !/선생님/.test(said) ? ' 다음에는 "선생님," 하고 불러서 말해 봐요.' : '';
+  if (told.length < visit.symptoms.length && !lenient) return { ok: false, kind: 'missing', say: '또 어디가 아파요? 그림을 다시 봐요.' };
+  const tip = !isLittle(age) && !lenient && !/선생님/.test(said) ? ' 다음에는 "선생님," 하고 불러서 말해 봐요.' : '';
   return { ok: true, kind: 'ok', say: `많이 아팠죠? ${visit.symptoms.map(s => s.treat).join(' ')} 금방 나을 거예요.${tip}` };
 }

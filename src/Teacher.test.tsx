@@ -164,3 +164,23 @@ describe('선생님 페이지', () => {
     expect(screen.getByText(/선생님 설정에서 마이크가 꺼져 있어요/)).toBeInTheDocument();
   });
 });
+
+describe('마을 지도 설정', () => {
+  it('"마을 가게를 모두 열어 두기"를 켜면 순서 없이 모두 열립니다', async () => {
+    const { user } = await openTeacher();
+    await user.click(screen.getByRole('checkbox', { name: '마을 가게를 모두 열어 두기' }));
+    await user.click(screen.getByRole('button', { name: '저장하기' }));
+    await back(user);
+    expect(screen.getByRole('button', { name: '꼬마 빵집' })).not.toHaveClass('locked');
+  });
+
+  it('"도장 모두 지우기"로 처음부터 다시 합니다', async () => {
+    localStorage.setItem('kids-shop:progress:v1', JSON.stringify({ cleared: ['super', 'fruit'] }));
+    const { user } = await openTeacher();
+    expect(screen.getByText('도장 2개를 받았어요.')).toBeInTheDocument();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(screen.getByRole('button', { name: '도장 모두 지우기' }));
+    expect(screen.getByText('도장 0개를 받았어요.')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('kids-shop:progress:v1')!)).toEqual({ cleared: [] });
+  });
+});

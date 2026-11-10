@@ -3,6 +3,7 @@
 //  - 점원 놀이: 손님(AI)이 주문을 말하면 아이가 물건을 눌러 담아 건넵니다 (듣기·수 세기).
 //  - 손님 놀이: 점원(AI)이 물건 그림을 보여 주면 아이가 말로 주문합니다 (말하기).
 // 가게(주제)는 선생님이 바꿀 수 있습니다. 아이 정보는 저장하지 않습니다.
+import { nearest } from './sound';
 
 /** 물건 세는 말. 말 알아듣기에서도 이 낱말들을 개수 단위로 봅니다. */
 export const UNITS = ['개', '병', '봉지', '송이', '자루', '장', '통', '조각', '권', '그릇', '잔', '다발', '켤레', '벌'] as const;
@@ -59,27 +60,40 @@ export const SUPER: Shop = {
 export const shownItems = (shop: Shop) => shop.items.filter(i => !i.hidden && i.name.trim());
 export const unitOf = (i: Item) => i.unit || '개';
 
-export type Age = '3' | '5' | '7';
+/** '1' 은 나이와 상관없이 가장 쉬운 '처음 해요' 단계입니다. */
+export type Age = '1' | '3' | '5' | '7';
 export type Mode = 'clerk' | 'customer';
 
 /** 유치원 반(만 나이)과 맞춥니다. id 는 저장·호환을 위해 예전 값('3'·'5'·'7')을 그대로 씁니다.
  *  개수 상한 근거: 만 3세는 수 이름의 뜻을 1~3까지 알아 가는 시기(Give-N 연구),
  *  누리과정 해설은 대략 3세 5개·4세 10개·5세 20개 구체물 세기를 다룹니다. 화면에서 그림을 세는 놀이라 그보다 낮게 둡니다. */
 export const AGES: { id: Age; label: string; detail: string }[] = [
+  { id: '1', label: '처음 해요', detail: '한 개만 · 그림 도움' },
   { id: '3', label: '만 3세', detail: '한 가지 · 3개까지' },
   { id: '5', label: '만 4세', detail: '한두 가지 · 5개까지' },
   { id: '7', label: '만 5세', detail: '두 가지 · 7개까지' },
 ];
 
+/** 쉬운 단계부터 */
+export const LEVELS: readonly Age[] = ['1', '3', '5', '7'];
+/** 한 단계 쉽게 ('1' 이면 그대로) */
+export const easier = (age: Age): Age => LEVELS[Math.max(0, LEVELS.indexOf(age) - 1)];
+/** 한 단계 어렵게, 하지만 top(아이가 고른 단계)을 넘지 않게 */
+export const harder = (age: Age, top: Age): Age => LEVELS[Math.min(LEVELS.indexOf(top), LEVELS.indexOf(age) + 1)];
+/** 도움을 빨리 주는 어린 단계 ('처음 해요'·만 3세) */
+export const isLittle = (age: Age) => age === '1' || age === '3';
+
 /** 나이와 놀이에 따라 가짓수와 개수 범위를 정합니다. 말하기(손님 놀이)는 조금 더 쉽게 둡니다.
  *  firstOnly: 3~4세 점원 놀이는 첫 번째 통로만 씁니다 (찾을 곳을 줄여서). */
 const RULES: Record<Mode, Record<Age, { kinds: number[]; max: number; firstOnly: boolean }>> = {
   clerk: {
+    '1': { kinds: [1], max: 1, firstOnly: true },
     '3': { kinds: [1], max: 3, firstOnly: true },
     '5': { kinds: [1, 2], max: 5, firstOnly: false },
     '7': { kinds: [2], max: 7, firstOnly: false },
   },
   customer: {
+    '1': { kinds: [1], max: 1, firstOnly: false },
     '3': { kinds: [1], max: 2, firstOnly: false },
     '5': { kinds: [1, 2], max: 3, firstOnly: false },
     '7': { kinds: [2], max: 5, firstOnly: false },
@@ -204,14 +218,31 @@ const CORRECTION = new RegExp(`아니(?:요|야)?(?:${WITH_UNIT}|${ALONE})`);
 const toNum = (m: RegExpMatchArray | null) => { const w = m?.[1] ?? m?.[2]; return w == null ? null : (NUM[w] ?? Number(w)); };
 export const norm = (s: string) => s.replace(/[\s.,!?~"'“”]/g, '');
 
-/** 말한 문장에서 물건과 개수를 찾습니다. 개수를 말하지 않았으면 null. */
-export function parseSpoken(text: string, items: readonly Item[] = ITEMS): Map<string, number | null> {
+// 낱말 끝의 부탁하는 말은 소리로 찾을 때 가립니다 ("주세요"가 "주스"로 들리지 않게).
+const ASKING = /(?:주세요|주데요|두세요|두데요|주시겠어요|주실래요|줘요|줘|부탁해요)/g;
+const wordsOf = (item: Item) => [item.name, ...(item.aliases ?? [])].map(norm).filter(Boolean);
+
+/** 말한 문장에서 물건과 개수를 찾습니다. 개수를 말하지 않았으면 null.
+ *  expect: 화면에 나온 정답 물건 id. 글자 그대로 못 찾은 정답 물건은 발음이 조금 달라도(sound.ts) 찾습니다. */
+export function parseSpoken(text: string, items: readonly Item[] = ITEMS, expect: readonly string[] = []): Map<string, number | null> {
   const said = norm(text);
   const hits: { id: string; start: number; end: number }[] = [];
   for (const item of items) {
-    for (const word of [item.name, ...(item.aliases ?? [])].map(norm).filter(Boolean)) {
+    for (const word of wordsOf(item)) {
       for (let at = said.indexOf(word); at >= 0; at = said.indexOf(word, at + 1)) hits.push({ id: item.id, start: at, end: at + word.length });
     }
+  }
+  // 아이 발음: 이미 찾은 낱말과 부탁하는 말을 가린 뒤, 못 찾은 정답 물건을 소리로 찾습니다.
+  const masked = [...said];
+  const hide = (start: number, end: number) => { for (let k = start; k < end; k++) masked[k] = '·'; };
+  hits.forEach(h => hide(h.start, h.end));
+  for (const m of said.matchAll(ASKING)) hide(m.index!, m.index! + m[0].length);
+  for (const id of expect) {
+    const item = items.find(i => i.id === id);
+    if (!item || hits.some(h => h.id === id)) continue;
+    const near = wordsOf(item).map(w => nearest(masked.join(''), w)).filter(n => n !== null)
+      .sort((a, b) => a.cost - b.cost || (b.end - b.start) - (a.end - a.start))[0];
+    if (near) { hits.push({ id, start: near.start, end: near.end }); hide(near.start, near.end); }
   }
   // 겹치면 긴 낱말을 남깁니다 ("곰인형" 안의 "인형").
   hits.sort((a, b) => a.start - b.start || b.end - a.end);
@@ -234,23 +265,26 @@ export function parseSpoken(text: string, items: readonly Item[] = ITEMS): Map<s
   return found;
 }
 
-/** 손님 놀이: 아이 말을 듣고 점원이 할 말. 정답 개수를 대신 말하지 않고 다시 세어 보게 합니다. */
-export function judgeSpoken(order: Order, text: string, age: Age, items: readonly Item[] = ITEMS): Verdict {
-  const said = parseSpoken(text, items);
+/** 손님 놀이: 아이 말을 듣고 점원이 할 말. 정답 개수를 대신 말하지 않고 다시 세어 보게 합니다.
+ *  lenient: 물건 이름만 말해도 맞다고 봅니다 ('처음 해요' 단계, 두 번 막힌 뒤). 개수를 잘못 들은 것도 넘어갑니다. */
+export function judgeSpoken(order: Order, text: string, age: Age, items: readonly Item[] = ITEMS, lenient = age === '1'): Verdict {
+  const said = parseSpoken(text, items, order.lines.map(l => l.item.id));
   if (said.size === 0) return { ok: false, kind: 'nothing', say: '어떤 물건을 드릴까요? 그림을 보고 이름을 말해 봐요.' };
   const extra = [...said.keys()].find(id => !order.lines.some(l => l.item.id === id));
-  if (extra) {
+  // 너그럽게 볼 때는 정답 물건을 다 말했으면 잘못 들린 다른 낱말은 넘어갑니다.
+  if (extra && !(lenient && order.lines.every(l => said.has(l.item.id)))) {
     const name = items.find(i => i.id === extra)?.name ?? '그 물건';
     return { ok: false, kind: 'wrong-item', say: `${josa(name, '은', '는')} 그림에 없어요. 그림을 다시 볼까요?` };
   }
   const missing = order.lines.find(l => !said.has(l.item.id));
   if (missing) return { ok: false, kind: 'missing', say: `${missing.item.name}도 말해 볼까요?` };
-  for (const l of order.lines) {
+  for (const l of lenient ? [] : order.lines) {
     const n = said.get(l.item.id);
     if (n == null && l.count > 1) return { ok: false, kind: 'no-count', say: `${josa(l.item.name, '은', '는')} 몇 ${unitOf(l.item)}일까요? 그림을 세어 보고 말해 봐요.` };
     if (n != null && n !== l.count) return { ok: false, kind: 'wrong-count', say: `${josa(l.item.name, '을', '를')} 하나씩 다시 세어 볼까요?` };
   }
-  const polite = /주세요|줘요|주실래요|주시겠어요|부탁/.test(norm(text));
-  const tip = !polite && age !== '3' ? ' 다음에는 끝에 "주세요"를 붙여서 말해 봐요.' : '';
+  // "주데요"·"두세요"처럼 발음이 조금 달라도 부탁하는 말로 봅니다.
+  const polite = /주세요|줘요|주실래요|주시겠어요|부탁/.test(norm(text)) || nearest(norm(text), '주세요') !== null;
+  const tip = !polite && !lenient && !isLittle(age) ? ' 다음에는 끝에 "주세요"를 붙여서 말해 봐요.' : '';
   return { ok: true, kind: 'ok', say: `네! ${orderList(order)} 드릴게요.${tip}` };
 }
