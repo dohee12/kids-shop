@@ -334,49 +334,55 @@ describe('사용성 점검 반영', () => {
   });
 });
 
-describe('마을 지도와 도장 (게임처럼 가게를 하나씩)', () => {
+describe('마을 지도와 보물상자 (게임처럼 가게를 하나씩)', () => {
   it('처음엔 첫 가게만 열려 있고, 잠긴 가게를 누르면 고르지 않고 알려 줍니다', async () => {
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    expect(screen.getByRole('img', { name: '도장 10개 중 0개' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '보물 10개 중 0개' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '꼬마 슈퍼마켓' })).toHaveClass('next');
     await user.click(screen.getByRole('button', { name: '꼬마 빵집 잠김' }));
     expect(screen.getByRole('heading', { name: '꼬마 슈퍼마켓', level: 2 })).toBeInTheDocument();
-    expect(screen.getByText(/끝까지 놀면/)).toBeInTheDocument();
+    expect(screen.getByText(/끝까지 놀면/)).toHaveTextContent('끝까지 놀면 열쇠를 받아요');
   });
 
-  it('한 판을 끝까지 하면 도장을 받고 다음 가게가 열립니다', async () => {
-    const user = userEvent.setup();
-    render(<App rng={zero} />);
+  const playSuper = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
     for (let i = 0; i < 5; i++) {
       await user.click(screen.getByRole('button', { name: '사과 담기' }));
       await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
       await user.click(screen.getByRole('button', { name: /다음 손님 오세요|오늘 가게 놀이 끝!/ }));
     }
-    expect(screen.getByText(/도장을 받았어요!/)).toHaveTextContent('꼬마 슈퍼마켓 도장을 받았어요!');
+  };
+
+  it('한 판을 끝까지 하면 열쇠를 받고, 보물상자를 눌러 열면 보물이 나오고 다음 가게가 열립니다', async () => {
+    const user = userEvent.setup();
+    render(<App rng={zero} />);
+    await playSuper(user);
+    expect(screen.getByText(/를 받았어요!/)).toHaveTextContent('열쇠를 받았어요!');
+    // 상자를 열기 전에는 무엇이 나올지 모릅니다
+    expect(screen.queryByText(/나왔어요/)).toBeNull();
+    // 보물은 끝까지 했을 때 이미 저장됩니다 (상자를 안 열고 나가도 잃지 않게)
+    expect(JSON.parse(localStorage.getItem(PROGRESS_KEY)!)).toEqual({ cleared: ['super'], treasures: { super: 'apple' } });
+    await user.click(screen.getByRole('button', { name: '보물상자 열기' }));
+    expect(screen.getByText(/나왔어요!/)).toHaveTextContent('짜잔! 사과가 나왔어요!');
     expect(screen.getByText(/열렸어요/)).toHaveTextContent('꼬마 과일가게가 열렸어요');
-    expect(JSON.parse(localStorage.getItem(PROGRESS_KEY)!)).toEqual({ cleared: ['super'] });
+    expect(screen.getByRole('img', { name: '보물 10개 중 1개' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '보물상자 열기' })).toBeNull();
     await user.click(screen.getByRole('button', { name: '다음 가게로 가기 →' }));
     expect(screen.getByRole('heading', { name: '꼬마 과일가게', level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '꼬마 슈퍼마켓 도장 받음' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: '도장 10개 중 1개' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '꼬마 슈퍼마켓 보물 찾음' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '보물 10개 중 1개' })).toBeInTheDocument();
   });
 
-  it('도장을 받은 가게는 또 놀아도 도장이 늘지 않습니다', async () => {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: ['super'] }));
+  it('보물을 찾은 가게는 또 놀아도 열쇠가 다시 나오지 않습니다', async () => {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: ['super'], treasures: { super: 'apple' } }));
     const user = userEvent.setup();
     render(<App rng={zero} />);
-    await user.click(screen.getByRole('button', { name: '꼬마 슈퍼마켓 도장 받음' }));
-    await user.click(screen.getByRole('button', { name: '놀러 가기 →' }));
-    for (let i = 0; i < 5; i++) {
-      await user.click(screen.getByRole('button', { name: '사과 담기' }));
-      await user.click(screen.getByRole('button', { name: '손님께 드리기' }));
-      await user.click(screen.getByRole('button', { name: /다음 손님 오세요|오늘 가게 놀이 끝!/ }));
-    }
+    await user.click(screen.getByRole('button', { name: '꼬마 슈퍼마켓 보물 찾음' }));
+    await playSuper(user);
     expect(screen.getByRole('heading', { name: '참 잘했어요!' })).toBeInTheDocument();
-    expect(screen.queryByText(/도장을 받았어요!/)).toBeNull();
-    expect(JSON.parse(localStorage.getItem(PROGRESS_KEY)!)).toEqual({ cleared: ['super'] });
+    expect(screen.queryByRole('button', { name: '보물상자 열기' })).toBeNull();
+    expect(JSON.parse(localStorage.getItem(PROGRESS_KEY)!)).toEqual({ cleared: ['super'], treasures: { super: 'apple' } });
   });
 });
 

@@ -407,15 +407,10 @@ img, svg { -webkit-user-drag: none; }
 .building.next[aria-pressed='true'] { border-color: var(--blue); box-shadow: 0 6px 0 var(--blue); }
 .here { position: absolute; top: -14px; right: 8px; z-index: 2; background: var(--go); color: #fff; font-size: 18px; padding: 2px 12px; border-radius: 999px; animation: bob 1s ease-in-out infinite; }
 .here::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -7px; border: 7px solid transparent; border-top-color: var(--go); border-bottom: 0; }
-.bld-stamp { position: absolute; right: -8px; bottom: -6px; transform: rotate(-14deg); }
-/* 도장 */
-.stamp { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; background: #FFF6F4; border: 3px solid #E0453A; box-shadow: inset 0 0 0 3px #FFF6F4, inset 0 0 0 5px #E0453A; color: #E0453A; vertical-align: middle; line-height: 1; }
-.stamp b { font-weight: 400; white-space: nowrap; margin-top: 1px; font-size: 9px; }
 .stamp-bar { margin-left: auto; display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 999px; padding: 6px 14px; box-shadow: 0 4px 0 #A9D3EC; position: relative; z-index: 1; }
-.stamp-bar-label { font-size: 18px; color: #E0453A; }
+.stamp-bar-label { font-size: 18px; color: #9A5B00; }
 .stamp-bar-dots { display: flex; gap: 3px; flex-wrap: wrap; max-width: 220px; }
-.stamp-bar-dots i { width: 18px; height: 18px; border-radius: 50%; border: 2px dashed #D6A9A4; font-style: normal; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
-.stamp-bar-dots i.on { border: 0; background: #E0453A; }
+.stamp-bar-dots i { width: 22px; height: 22px; border-radius: 50%; border: 2px dashed #D9B98F; font-style: normal; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
 .stamp-bar b { font-weight: 400; font-size: 20px; color: var(--ink); }
 .village-party { margin: 12px 20px 0; padding: 10px 16px; border-radius: 18px; background: #FFF3C4; text-align: center; font-size: 24px; color: #9A5B00; }
 .pick-reward { margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 15px; color: var(--soft); }
@@ -425,17 +420,39 @@ img, svg { -webkit-user-drag: none; }
 .easy-chip { background: #FFF0D6; color: #8A4B00; border-radius: 999px; padding: 2px 10px; font-size: 13px; white-space: nowrap; }
 /* 끝 화면 도장 소식 */
 .stamp-news { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.stamp-pop { animation: stamp-in .5s cubic-bezier(.2, 1.6, .5, 1) both; transform: rotate(-12deg); }
-.stamp-pop .stamp b { font-size: 16px; }
 .stamp-text { margin: 4px 0 0; font-size: 28px; }
 .stamp-next { margin: 0; font-size: 22px; color: var(--blue); }
-.stamp-count { margin: 0; font-size: 26px; letter-spacing: 2px; color: #E0453A; }
-.stamp-count span { color: #D6A9A4; }
 .done-animals.party > * { animation: bob 1.2s ease-in-out infinite; }
 .done-animals.party > *:nth-child(2n) { animation-delay: .3s; }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes stamp-in { from { transform: scale(2.2) rotate(-30deg); opacity: 0; } to { transform: scale(1) rotate(-12deg); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .here, .done-animals.party > *, .stamp-pop { animation: none; } }
+/* 열쇠와 보물상자 */
+.chest { position: relative; display: inline-block; vertical-align: middle; line-height: 0; }
+.chest svg { display: block; overflow: visible; }
+.chest-lid { transform-box: fill-box; transform-origin: 0% 100%; transition: transform .45s cubic-bezier(.2, 1.4, .5, 1); }
+.chest.open .chest-lid { transform: rotate(-28deg) translate(-4px, -6px); }
+.chest-pop .chest-lid { animation: lid-open .5s cubic-bezier(.2, 1.4, .5, 1) both; }
+.chest-gift { position: absolute; left: 50%; top: 4%; z-index: 1; transform: translate(-50%, -38%); animation: gift-up .6s .15s cubic-bezier(.2, 1.6, .5, 1) both; filter: drop-shadow(0 3px 0 rgba(91, 70, 54, .18)); }
+.bld-stamp .chest-gift { animation: none; }
+.bld-stamp { position: absolute; right: -14px; top: 46px; transform: rotate(-6deg); }
+.bld-stamp.shut { right: -10px; top: 62px; }
+.key { display: inline-block; vertical-align: middle; }
+.key-get { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 30px; }
+.key-pop { display: inline-flex; animation: key-in .6s cubic-bezier(.2, 1.6, .5, 1) both; }
+.chest-btn { border: 0; background: none; padding: 8px 18px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; border-radius: 24px; animation: wiggle 1.6s .6s ease-in-out infinite; }
+.chest-btn:focus-visible { outline: 4px solid var(--blue); outline-offset: 4px; }
+.chest-btn:active { transform: scale(.96); }
+.chest-hint { font-size: 20px; color: #fff; background: var(--go); border-radius: 999px; padding: 4px 16px; box-shadow: 0 4px 0 var(--go-shadow); }
+.chest-pop { padding-top: 40px; }
+.treasure-row { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 420px; }
+.treasure-row i, .stamp-bar-dots i { overflow: hidden; }
+.treasure-row i { width: 34px; height: 34px; border-radius: 50%; border: 2px dashed #D9B98F; display: flex; align-items: center; justify-content: center; }
+.treasure-row i.on { border: 2px solid #F2C14E; background: #FFF6D6; }
+.stamp-bar-dots i.on { background: #FFF6D6; border: 2px solid #F2C14E; }
+@keyframes lid-open { from { transform: none; } to { transform: rotate(-28deg) translate(-4px, -6px); } }
+@keyframes gift-up { from { transform: translate(-50%, 30%) scale(.3); opacity: 0; } to { transform: translate(-50%, -38%) scale(1); opacity: 1; } }
+@keyframes key-in { from { transform: translateY(-40px) rotate(-90deg) scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes wiggle { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-4deg); } 84% { transform: rotate(4deg); } 92% { transform: rotate(-2deg); } }
+@media (prefers-reduced-motion: reduce) { .here, .done-animals.party > *, .chest-pop .chest-lid, .chest-gift, .key-pop, .chest-btn { animation: none; } .chest-lid { transition: none; } }
 @media (max-width: 600px) {
   .map-row { --gap: 10px; }
   .sky { flex-wrap: wrap; }

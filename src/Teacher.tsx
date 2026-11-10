@@ -10,7 +10,7 @@ import {
 import { BUILTIN, isBuiltin } from './themes';
 
 /** draft: 미리보기에서 돌아올 때 고치던 내용 */
-/** stamps: 지금 받은 도장 수, onResetStamps: 도장 모두 지우기 */
+/** stamps: 지금 찾은 보물 수, onResetStamps: 보물 모두 지우기 */
 type Props = { store: Store; draft?: Store | null; onSave: (s: Store) => boolean; onClose: () => void; onPreview: (s: Store) => void; stamps?: number; onResetStamps?: () => void };
 
 const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -94,9 +94,9 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
     setNote(ok ? '저장했어요. 아이 화면에 바로 나와요.' : '저장하지 못했어요. 시크릿(사생활 보호) 창이면 일반 창으로 열어 주세요. 사진이 많으면 몇 개를 지워 주세요.');
   };
   const resetStamps = () => {
-    if (!ask('받은 도장을 모두 지우고 첫 가게부터 다시 할까요?')) return;
+    if (!ask('찾은 보물을 모두 지우고 첫 가게부터 다시 할까요?')) return;
     onResetStamps?.();
-    setNote('도장을 모두 지웠어요. 첫 가게부터 다시 열려요.');
+    setNote('보물을 모두 지웠어요. 첫 가게부터 다시 열려요.');
   };
   const close = () => { if (!dirty || ask('저장하지 않은 내용이 있어요. 저장하지 않고 나갈까요?')) onClose(); };
 
@@ -215,10 +215,10 @@ export default function Teacher({ store, draft: start, onSave, onClose, onPrevie
           <input type="checkbox" checked={openAll} onChange={e => { setOpenAll(e.target.checked); setNote(''); }} />
           마을 가게를 모두 열어 두기
         </label>
-        <p className="t-help">끄면 아이가 가게 놀이를 한 판 끝낼 때마다 도장을 받고 다음 가게가 열려요(지도 순서 = 놀이 주제 순서). 오늘 정한 가게로 바로 가려면 켜 두세요.</p>
+        <p className="t-help">끄면 아이가 가게 놀이를 한 판 끝낼 때마다 열쇠를 받아 보물상자를 열고, 다음 가게가 열려요(지도 순서 = 놀이 주제 순서). 오늘 정한 가게로 바로 가려면 켜 두세요.</p>
         <div className="t-row">
-          <span className="t-help">도장 {stamps}개를 받았어요.</span>
-          <button type="button" className="t-btn" onClick={resetStamps} disabled={stamps === 0}>도장 모두 지우기</button>
+          <span className="t-help">보물 {stamps}개를 찾았어요.</span>
+          <button type="button" className="t-btn" onClick={resetStamps} disabled={stamps === 0}>보물 모두 지우기</button>
         </div>
         <div className="t-voice">
           <label className="t-field grow">목소리

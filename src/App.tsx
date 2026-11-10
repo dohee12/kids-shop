@@ -6,7 +6,7 @@ import {
   type Age, type Item, type Kind, type Mode, type Order, type Shop, type Tray, type Verdict,
 } from './game';
 import { asksWhere, judgeWhere, kioskAsk, makeKioskOrder, orderNumber, WHERE, type KioskOrder, type Where } from './kiosk';
-import { hasStamp, isOpen, loadProgress, nextShop, saveProgress, stampCount, withStamp, type Progress } from './progress';
+import { EMPTY, hasStamp, isOpen, loadProgress, nextShop, pickTreasure, saveProgress, stampCount, treasureOf, withStamp, type Progress } from './progress';
 import { loadStore, saveStore, type Store } from './shop';
 import { browserRecognizer, hush, say, sayCount, sayIfQuiet, setVoice, type Listening, type Recognizer } from './speech';
 import Teacher from './Teacher';
@@ -15,8 +15,8 @@ type Props = { rng?: () => number; recognizer?: Recognizer };
 /** 나이 버튼을 누르면 읽어 줄 말 ("만 3세"를 또렷하게 읽도록) */
 const AGE_SAY: Record<Age, string> = { '1': '처음 해요. 한 개만 해 봐요', '3': '만 세 살', '5': '만 네 살', '7': '만 다섯 살' };
 type Screen = 'start' | 'play' | 'done' | 'gate' | 'teacher';
-/** 한 판을 끝내고 받은 것: 새 도장인지, 다음에 열린 가게, 마을 도장을 다 모았는지 */
-type Reward = { isNew: boolean; next: Shop | null; all: boolean; count: number; total: number };
+/** 한 판을 끝내고 받은 것: 새 열쇠인지, 보물상자에서 나올 물건, 다음에 열린 가게, 마을 보물을 다 모았는지 */
+type Reward = { isNew: boolean; treasure?: Item; next: Shop | null; all: boolean; count: number; total: number };
 /** '처음 해요' 단계는 한 판을 짧게 (손님 3명까지) */
 const roundsFor = (shop: Shop, age: Age) => (age === '1' ? Math.min(shop.rounds, 3) : shop.rounds);
 /** 막혔을 때 도움(주문 그림)을 보여 주는 때: 처음 해요는 처음부터, 만 3세는 한 번, 그 위는 두 번 막히면 */
@@ -29,11 +29,11 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   const active = preview ?? store;
   // 마을 지도에서 아이가 고른 가게. 저장하지 않고, 처음엔 선생님이 정한 가게입니다.
   const [picked, setPicked] = useState<string | null>(null);
-  // 마을 도장 (이 기기에만 저장). 미리보기 중에는 도장을 저장하지 않습니다.
+  // 마을 보물 (이 기기에만 저장). 미리보기 중에는 보물을 저장하지 않습니다.
   const [progress, setProgress] = useState<Progress>(loadProgress);
   const openAll = active.openAll;
   const shops = active.shops;
-  // 처음 고를 가게: 선생님이 정한 가게에 아직 도장이 없으면 그곳, 아니면 다음에 갈 가게 (다 받았으면 선생님이 정한 가게)
+  // 처음 고를 가게: 선생님이 정한 가게에 아직 보물을 찾지 않았으면 그곳, 아니면 다음에 갈 가게 (다 찾았으면 선생님이 정한 가게)
   const teacherShop = shops.find(s => s.id === active.current) ?? shops[0];
   const firstPick = !hasStamp(progress, teacherShop.id) ? teacherShop : nextShop(shops, progress, openAll, active.current) ?? teacherShop;
   const shop = shops.find(s => s.id === picked) ?? firstPick;
@@ -62,7 +62,7 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   };
   const start = (m: Mode = mode) => {
     setMode(m);
-    setPicked(shop.id); // 놀이 중에 도장을 받아도 지금 가게가 바뀌지 않게
+    setPicked(shop.id); // 놀이 중에 보물을 찾아도 지금 가게가 바뀌지 않게
     setRound(1);
     setLevel(age);
     setOrder(null); setVisit(null);
@@ -71,14 +71,15 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
     else setOrder(makeOrder(m, age, rng, undefined, shop));
     setScreen('play');
   };
-  /** 한 판을 끝까지 하면 그 가게 도장을 받습니다 (잘하고 못하고와 상관없이 끝까지 한 것에 주는 도장). */
+  /** 한 판을 끝까지 하면 열쇠를 받고 그 가게 보물상자를 엽니다 (잘하고 못하고와 상관없이 끝까지 한 것에 주는 열쇠). */
   const finish = () => {
     hush();
     const isNew = !hasStamp(progress, shop.id);
-    const p = withStamp(progress, shop.id);
+    const treasure = isNew ? pickTreasure(shop, rng) : undefined;
+    const p = withStamp(progress, shop.id, treasure?.id);
     if (isNew && !preview) { setProgress(p); saveProgress(p); }
     const count = stampCount(shops, p);
-    setReward({ isNew, next: isNew ? nextShop(shops, p, openAll, active.current) : null, all: count === shops.length, count, total: shops.length });
+    setReward({ isNew, treasure, next: isNew ? nextShop(shops, p, openAll, active.current) : null, all: count === shops.length, count, total: shops.length });
     setScreen('done');
   };
   const next = (misses = 0) => {
@@ -93,7 +94,7 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
   const [leaving, setLeaving] = useState(false);
   const askLeave = () => { setLeaving(true); say('마을로 돌아갈까요?'); };
   const leaveTeacher = () => { setPreview(null); setPicked(null); setScreen('start'); };
-  const resetStamps = () => { const p = { cleared: [] }; setProgress(p); saveProgress(p); setPicked(null); };
+  const resetStamps = () => { const p = EMPTY; setProgress(p); saveProgress(p); setPicked(null); };
   const saveShops = (s: Store) => {
     if (!saveStore(s)) return false;
     setStore(s);
@@ -109,7 +110,7 @@ export default function App({ rng = Math.random, recognizer = browserRecognizer 
       onPreview={d => { setPreview(d); setPicked(null); setScreen('start'); }} />;
   }
   if (screen === 'done') {
-    return <Done kind={kind} mode={mode} rounds={rounds} customers={shop.customers} shop={shop} reward={reward}
+    return <Done kind={kind} mode={mode} rounds={rounds} customers={shop.customers} shop={shop} reward={reward} shops={shops} progress={progress}
       onAgain={() => start()} onHome={() => { setPicked(null); home(); }} onNextShop={reward?.next ? () => { setPicked(reward.next!.id); home(); } : undefined} />;
   }
   const guest = kind === 'clinic' ? visit?.customer : order?.customer;
@@ -828,13 +829,39 @@ function useMapCols() {
   return narrow ? 2 : 3;
 }
 
-/** 도장: 가게 간판 그림과 별 */
-function Stamp({ pic, size = 56 }: { pic?: string; size?: number }) {
+/** 보물상자: open 이면 뚜껑이 열리고 안에 든 보물(pic)이 솟아오릅니다. */
+function Chest({ open, pic, size = 56 }: { open: boolean; pic?: string; size?: number }) {
+  const h = Math.round(size * 0.9);
   return (
-    <span className="stamp" style={{ width: size, height: size }} aria-hidden="true">
-      <Pic pic={pic} size={Math.round(size * 0.5)} />
-      {size >= 80 && <b>참 잘했어요</b>}
+    <span className={open ? 'chest open' : 'chest'} style={{ width: size, height: h }} aria-hidden="true">
+      {open && pic && <span className="chest-gift"><Pic pic={pic} size={Math.round(size * 0.55)} /></span>}
+      <svg width={size} height={h} viewBox="0 0 120 108">
+        {open && <ellipse cx="60" cy="52" rx="46" ry="12" fill="#FFE27A" opacity=".9" />}
+        <rect x="10" y="50" width="100" height="54" rx="8" fill="#C9864A" stroke="#5B4636" strokeWidth="4" />
+        <rect x="10" y="66" width="100" height="9" fill="#F2C14E" stroke="#5B4636" strokeWidth="2" />
+        <rect x="26" y="50" width="10" height="54" fill="#F2C14E" stroke="#5B4636" strokeWidth="2" />
+        <rect x="84" y="50" width="10" height="54" fill="#F2C14E" stroke="#5B4636" strokeWidth="2" />
+        {!open && <g><rect x="49" y="58" width="22" height="24" rx="4" fill="#FFD95A" stroke="#5B4636" strokeWidth="3" />
+          <circle cx="60" cy="67" r="3.5" fill="#5B4636" /><rect x="58.5" y="68" width="3" height="8" rx="1.5" fill="#5B4636" /></g>}
+        <g className="chest-lid">
+          <path d="M8 52 Q8 20 60 20 Q112 20 112 52 Z" fill="#B0703A" stroke="#5B4636" strokeWidth="4" strokeLinejoin="round" />
+          <path d="M26 52 Q26 25 31 23 L39 22 Q35 30 36 52 Z" fill="#F2C14E" stroke="#5B4636" strokeWidth="2" />
+          <path d="M84 52 Q85 30 81 22 L89 23 Q94 25 94 52 Z" fill="#F2C14E" stroke="#5B4636" strokeWidth="2" />
+        </g>
+      </svg>
     </span>
+  );
+}
+
+/** 열쇠 그림 */
+function Key({ size = 40 }: { size?: number }) {
+  return (
+    <svg className="key" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="20" cy="22" r="13" fill="#FFD95A" stroke="#5B4636" strokeWidth="4" />
+      <circle cx="20" cy="22" r="5" fill="#FFF8E1" stroke="#5B4636" strokeWidth="3" />
+      <path d="M29 31 L52 54 M42 44 L48 38 M47 49 L53 43" stroke="#5B4636" strokeWidth="9" strokeLinecap="round" />
+      <path d="M29 31 L52 54 M42 44 L48 38 M47 49 L53 43" stroke="#FFD95A" strokeWidth="4" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -865,7 +892,7 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
     const st = statusOf(s, i);
     if (st === 'locked') { say(`${shops[i - 1].name}에서 놀고 오면 열려요.`); return; }
     onPick(s.id);
-    say(st === 'done' ? `${s.name}. 도장을 받은 가게예요. 또 놀러 갈까요?` : `${s.name}에 가 볼까요?`);
+    say(st === 'done' ? `${s.name}. 보물을 찾은 가게예요. 또 놀러 갈까요?` : `${s.name}에 가 볼까요?`);
     showPick();
   };
   // 지도 길: 한 줄씩 왼쪽→오른쪽, 다음 줄은 오른쪽→왼쪽으로 꼬불꼬불 이어집니다 (보드게임 판처럼).
@@ -878,16 +905,16 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
       <header className="sky">
         <Animal id="rabbit" size={64} happy />
         <h1>꼬마 역할놀이 마을</h1>
-        <div className="stamp-bar" role="img" aria-label={`도장 ${shops.length}개 중 ${count}개`}>
-          <span className="stamp-bar-label" aria-hidden="true">도장</span>
+        <div className="stamp-bar" role="img" aria-label={`보물 ${shops.length}개 중 ${count}개`}>
+          <span className="stamp-bar-label" aria-hidden="true">보물</span>
           <span className="stamp-bar-dots" aria-hidden="true">
-            {shops.map(s => <i key={s.id} className={hasStamp(progress, s.id) ? 'on' : ''}>{hasStamp(progress, s.id) ? '★' : ''}</i>)}
+            {shops.map(s => <i key={s.id} className={hasStamp(progress, s.id) ? 'on' : ''}>{hasStamp(progress, s.id) && <Pic pic={treasureOf(s, progress)?.pic} size={20} />}</i>)}
           </span>
           <b aria-hidden="true">{count}/{shops.length}</b>
         </div>
         <svg className="hill" viewBox="0 0 1124 34" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34 Q120 0 260 22 T560 18 T860 20 T1124 10 V34z" fill="#BFE3C9" /></svg>
       </header>
-      {all && <p className="village-party" role="status">🎉 마을 도장을 다 모았어요! 마을 잔치를 열어요 🎉</p>}
+      {all && <p className="village-party" role="status">🎉 마을 보물을 다 찾았어요! 마을 잔치를 열어요 🎉</p>}
       <div className="village-body">
         <section className="map" aria-label="마을 지도">
           <div className="map-path" style={{ ['--cols' as string]: cols }}>
@@ -897,7 +924,7 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
                 <div className={r % 2 ? 'map-row back' : 'map-row'} style={{ ['--n' as string]: row.length }}>
                   {row.map(({ s, i }) => {
                     const st = statusOf(s, i);
-                    const label = `${s.name}${st === 'done' ? ' 도장 받음' : st === 'locked' ? ' 잠김' : ''}`;
+                    const label = `${s.name}${st === 'done' ? ' 보물 찾음' : st === 'locked' ? ' 잠김' : ''}`;
                     return (
                       <button type="button" key={s.id} className={`building ${st}`} aria-pressed={s.id === shop.id} aria-label={label} onClick={() => tap(s, i)}>
                         <span className="bld-no" aria-hidden="true">{i + 1}</span>
@@ -913,7 +940,8 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
                           </svg>
                           {sign(s) && <span className="bld-sign"><Pic pic={sign(s)} size={28} /></span>}
                           {st === 'locked' && <span className="bld-lock" aria-hidden="true">🔒</span>}
-                          {st === 'done' && <span className="bld-stamp"><Stamp pic={sign(s)} size={58} /></span>}
+                          {st === 'done' && <span className="bld-stamp"><Chest open pic={treasureOf(s, progress)?.pic} size={48} /></span>}
+                          {(st === 'next' || st === 'open') && <span className="bld-stamp shut"><Chest open={false} size={36} /></span>}
                         </span>
                         <span className="bld-name" aria-hidden="true">{s.name}</span>
                       </button>
@@ -925,7 +953,7 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
           </div>
         </section>
         <aside className="pick" aria-label="놀이 고르기" ref={pickRef}>
-          <p className="pick-small">{hasStamp(progress, shop.id) ? '도장을 받은 가게예요. 또 놀 수 있어요' : '여기로 놀러 가요'}</p>
+          <p className="pick-small">{hasStamp(progress, shop.id) ? '보물을 찾은 가게예요. 또 놀 수 있어요' : '여기로 놀러 가요'}</p>
           <h2 style={{ color: roofOf(cur) }}>{shop.name}</h2>
           <p className="pick-q">누가 되어 볼까요?</p>
           <div className="roles">
@@ -946,7 +974,7 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
             ))}
           </div>
           <button type="button" className="big go" onClick={onStart}>놀러 가기 →</button>
-          {!hasStamp(progress, shop.id) && <p className="pick-reward sans">끝까지 놀면 <Stamp pic={sign(shop)} size={34} /> 도장을 받아요</p>}
+          {!hasStamp(progress, shop.id) && <p className="pick-reward sans">끝까지 놀면 <Key size={26} /> 열쇠를 받아요</p>}
         </aside>
       </div>
       {/* 선생님 버튼: 아이 놀이 영역 밖, 오른쪽 맨 아래 구석에 작게 */}
@@ -955,8 +983,8 @@ function Start({ shops, shop, progress, openAll, always, onPick, mode, setMode, 
   );
 }
 
-function Done({ kind, mode, rounds, customers, shop, reward, onAgain, onHome, onNextShop }: {
-  kind: Kind; mode: Mode; rounds: number; customers: string[]; shop: Shop; reward: Reward | null;
+function Done({ kind, mode, rounds, customers, shop, reward, shops, progress, onAgain, onHome, onNextShop }: {
+  kind: Kind; mode: Mode; rounds: number; customers: string[]; shop: Shop; reward: Reward | null; shops: Shop[]; progress: Progress;
   onAgain: () => void; onHome: () => void; onNextShop?: () => void;
 }) {
   // 결과보다 한 일을 짚어 칭찬하고, 화면 밖 진짜 놀이로 이어 갑니다.
@@ -973,21 +1001,42 @@ function Done({ kind, mode, rounds, customers, shop, reward, onAgain, onHome, on
   };
   const text = TEXT[kind][mode];
   const next = NEXT[kind];
-  const sign = shownItems(shop)[0]?.pic;
-  // 도장 소식: 끝까지 한 것에 주는 도장이라 "잘해서"가 아니라 "끝까지 해서"라고 말합니다.
-  const news = !reward?.isNew ? ''
-    : reward.all ? `끝까지 놀아서 ${shop.name} 도장을 받았어요! 마을 도장을 다 모았어요. 마을 잔치를 열어요!`
-    : `끝까지 놀아서 ${shop.name} 도장을 받았어요!${reward.next ? ` ${josa(reward.next.name, '이', '가')} 열렸어요.` : ''}`;
+  // 열쇠 소식: 끝까지 한 것에 주는 열쇠라 "잘해서"가 아니라 "끝까지 해서"라고 말합니다.
+  // 보물상자는 아이가 직접 눌러 엽니다. 무엇이 나올지 모르는 깜짝 선물이에요.
+  const [opened, setOpened] = useState(false);
+  const gift = reward?.treasure;
+  const news = reward?.isNew ? '끝까지 놀아서 열쇠를 받았어요! 보물상자를 눌러서 열어 볼까요?' : '';
   useEffect(() => { say(`${news ? `${news} ` : ''}${text} ${next}`); }, [text]);
+  const open = () => {
+    if (opened || !reward) return;
+    setOpened(true);
+    const found = gift ? `짜잔! 보물상자에서 ${josa(gift.name, '이', '가')} 나왔어요!` : '짜잔! 보물상자를 열었어요!';
+    const after = reward.all ? ' 마을 보물을 다 찾았어요. 마을 잔치를 열어요!' : reward.next ? ` ${josa(reward.next.name, '이', '가')} 열렸어요.` : '';
+    say(found + after);
+  };
+  const tail = (w: string) => josa(w, '이', '가').slice(w.length);
   return (
     <main className="start done">
       {reward?.isNew ? (
         <div className="stamp-news" role="status">
-          <span className="stamp-pop"><Stamp pic={sign} size={120} /></span>
-          <p className="stamp-text"><b>{shop.name}</b> 도장을 받았어요!</p>
-          {reward.all ? <p className="stamp-next">🎉 마을 도장을 다 모았어요! 마을 잔치를 열어요 🎉</p>
-            : reward.next && <p className="stamp-next">🔓 <b>{reward.next.name}</b>{josa(reward.next.name, '이', '가').slice(reward.next.name.length)} 열렸어요</p>}
-          <p className="stamp-count" aria-label={`도장 ${reward.total}개 중 ${reward.count}개`}>{'★'.repeat(reward.count)}<span>{'☆'.repeat(Math.max(0, reward.total - reward.count))}</span></p>
+          {!opened ? <>
+            <p className="key-get"><span className="key-pop"><Key size={64} /></span><span><b>열쇠</b>를 받았어요!</span></p>
+            <button type="button" className="chest-btn" onClick={open} aria-label="보물상자 열기">
+              <Chest open={false} size={150} />
+              <span className="chest-hint">눌러서 열어요</span>
+            </button>
+          </> : <>
+            <span className="chest-pop"><Chest open pic={gift?.pic} size={150} /></span>
+            <p className="stamp-text">짜잔! <b>{gift?.name ?? '보물'}</b>{tail(gift?.name ?? '보물')} 나왔어요!</p>
+            {reward.all ? <p className="stamp-next">🎉 마을 보물을 다 찾았어요! 마을 잔치를 열어요 🎉</p>
+              : reward.next && <p className="stamp-next">🔓 <b>{reward.next.name}</b>{tail(reward.next.name)} 열렸어요</p>}
+            <p className="treasure-row" role="img" aria-label={`보물 ${reward.total}개 중 ${reward.count}개`}>
+              {shops.map(s => {
+                const got = s.id === shop.id || hasStamp(progress, s.id);
+                return <i key={s.id} className={got ? 'on' : ''}>{got && <Pic pic={(s.id === shop.id ? gift : treasureOf(s, progress))?.pic} size={26} />}</i>;
+              })}
+            </p>
+          </>}
         </div>
       ) : <p className="big-stars" aria-hidden="true">{'★'.repeat(Math.min(rounds, 5))}</p>}
       <h1>참 잘했어요!</h1>

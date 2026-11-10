@@ -174,13 +174,13 @@ describe('마을 지도 설정', () => {
     expect(screen.getByRole('button', { name: '꼬마 빵집' })).not.toHaveClass('locked');
   });
 
-  it('"도장 모두 지우기"로 처음부터 다시 합니다', async () => {
+  it('"보물 모두 지우기"로 처음부터 다시 합니다', async () => {
     localStorage.setItem('kids-shop:progress:v1', JSON.stringify({ cleared: ['super', 'fruit'] }));
     const { user } = await openTeacher();
-    expect(screen.getByText('도장 2개를 받았어요.')).toBeInTheDocument();
+    expect(screen.getByText('보물 2개를 찾았어요.')).toBeInTheDocument();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    await user.click(screen.getByRole('button', { name: '도장 모두 지우기' }));
-    expect(screen.getByText('도장 0개를 받았어요.')).toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem('kids-shop:progress:v1')!)).toEqual({ cleared: [] });
+    await user.click(screen.getByRole('button', { name: '보물 모두 지우기' }));
+    expect(screen.getByText('보물 0개를 찾았어요.')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('kids-shop:progress:v1')!)).toEqual({ cleared: [], treasures: {} });
   });
 });
