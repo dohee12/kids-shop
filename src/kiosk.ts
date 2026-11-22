@@ -1,6 +1,6 @@
 // 키오스크 놀이 규칙. 친구가 부탁한 대로 메뉴를 고르고 → 먹는 곳을 고르고 → 결제합니다.
 // 돈 계산은 넣지 않습니다 (만 3~5세 수 세기 범위를 넘어서). 결제는 카드 넣기 흉내만 냅니다.
-import { josa, makeOrder, orderList, type Age, type Mode, type Order, type Shop, type Verdict } from './game';
+import { isLittle, josa, makeOrder, orderList, type Age, type Mode, type Order, type Shop, type Verdict } from './game';
 
 export type Where = 'here' | 'togo';
 export type KioskOrder = Order & { where: Where };
@@ -10,8 +10,8 @@ export const WHERE: Record<Where, { label: string; pic: string; say: string }> =
   togo: { label: '가져가요', pic: '🛍️', say: '집에 가져갈 거예요.' },
 };
 
-/** 만 3세는 메뉴 고르기와 결제만, 그 위는 먹는 곳 고르기도 합니다. */
-export const asksWhere = (age: Age) => age !== '3';
+/** 처음 해요·만 3세는 메뉴 고르기와 결제만, 그 위는 먹는 곳 고르기도 합니다. */
+export const asksWhere = (age: Age) => !isLittle(age);
 
 export function makeKioskOrder(mode: Mode, age: Age, rng: () => number = Math.random, previous?: Order, shop?: Shop): KioskOrder {
   const order = makeOrder(mode, age, rng, previous, shop);

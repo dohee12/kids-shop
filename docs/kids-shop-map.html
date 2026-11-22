@@ -1,0 +1,348 @@
+<title>꼬마 역할놀이 마을 설계도</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 레이아웃: 위에서 아래로 읽는 한 줄 문서. 바깥(기기) → 화면 흐름 → 놀이 갈래 → 한 판의 데이터 → 모듈 → 파일 목록 */
+:root{
+  --bg:#F3F7F6; --panel:#FFFFFF; --fg:#1F2D2B; --muted:#5B6E6A; --line:#C3D4D0;
+  --accent:#2F6FDB; --accent-soft:#E3ECFC; --mark:#C98A00; --mark-soft:#FFF3D1;
+  --display:'Jua','Noto Sans KR',system-ui,sans-serif;
+  --body:'Noto Sans KR',system-ui,-apple-system,'Malgun Gothic',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111917; --panel:#18221F; --fg:#E2ECEA; --muted:#93A7A2; --line:#2F403C;
+  --accent:#86AEFF; --accent-soft:#1E2B45; --mark:#F2C14E; --mark-soft:#3A3016; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111917; --panel:#18221F; --fg:#E2ECEA; --muted:#93A7A2; --line:#2F403C;
+  --accent:#86AEFF; --accent-soft:#1E2B45; --mark:#F2C14E; --mark-soft:#3A3016; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.65}
+.wrap{max-width:1040px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:48px}
+header{display:grid;gap:10px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted)}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,5vw,44px);line-height:1.2;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:400;font-size:24px;margin:0;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.lead{color:var(--muted);font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 10px}
+section{display:grid;gap:14px}
+section>p{color:var(--muted)}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px;min-width:0}
+.scroll{overflow-x:auto}
+figure svg{display:block;width:100%;height:auto;min-width:640px;color:var(--fg)}
+figcaption{font-size:13.5px;color:var(--muted);max-width:80ch}
+code,.mono{font-family:var(--mono);font-size:.88em}
+/* SVG 요소 스타일 (SVG 안에는 style 을 두지 않음) */
+.box{fill:var(--panel);stroke:var(--fg);stroke-width:1.4}
+.box.soft{fill:var(--bg);stroke:var(--line)}
+.box.hub{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.box.out{fill:var(--mark-soft);stroke:var(--mark);stroke-width:2;stroke-dasharray:6 4}
+.frame{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:3 4}
+.t{fill:currentColor;font-family:var(--body);font-size:13px}
+.t.b{font-weight:700;font-size:14px}
+.t.s{font-size:11.5px;fill:var(--muted)}
+.t.m{font-family:var(--mono);font-size:11px}
+.t.lane{font-family:var(--display);font-size:15px}
+.t.acc{fill:var(--accent)} .t.mk{fill:var(--mark)}
+.edge{fill:none;stroke:currentColor;stroke-width:1.4}
+.edge.acc{stroke:var(--accent)} .edge.mk{stroke:var(--mark);stroke-dasharray:6 4;stroke-width:1.8}
+.ah{fill:currentColor} .ah.acc{fill:var(--accent)} .ah.mk{fill:var(--mark)}
+/* 표 */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:620px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:700;font-size:12.5px;color:var(--muted);letter-spacing:.03em;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.n{font-variant-numeric:tabular-nums;text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+.bar{display:inline-block;height:8px;border-radius:4px;background:var(--accent);vertical-align:middle;margin-left:8px;opacity:.75}
+.tag{display:inline-block;font-size:11.5px;border-radius:6px;padding:1px 7px;background:var(--accent-soft);color:var(--accent);font-weight:500;white-space:nowrap}
+.tag.g{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;gap:6px;min-width:0}
+.note h3{margin:0;font-size:15px}
+.note p{font-size:14px;color:var(--muted)}
+pre.mermaid{margin:0;background:transparent}
+footer{color:var(--muted);font-size:13px}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">D:\kids-shop · 브랜치 feat/village-map · 2026-11-22 기준</span>
+  <h1>꼬마 역할놀이 마을 설계도</h1>
+  <p class="lead">만 3~5세 아이가 가게 놀이로 듣기·수 세기·말하기를 하는 웹 앱입니다. 서버 없이 브라우저 하나에서 모두 돌아갑니다. 아래 그림은 바깥에서 안쪽 순서로, 기기와 바깥 서비스 → 화면 흐름 → 놀이 갈래 → 한 판의 데이터 → 코드 모듈로 좁혀 들어갑니다.</p>
+  <div class="chips">
+    <span class="chip">React 19</span><span class="chip">TypeScript 5.9</span><span class="chip">Vite 8</span><span class="chip">Vitest 5 + Testing Library</span><span class="chip">Web Speech API</span><span class="chip">localStorage</span><span class="chip">Vercel 정적 배포</span>
+  </div>
+</header>
+
+<!-- 1. 실행 구조 -->
+<section>
+  <h2>1. 앱이 실제로 사는 곳</h2>
+  <p>내려받은 뒤에는 모든 일이 기기 안에서 일어납니다. 기기 밖으로 나가는 데이터는 손님 놀이에서 마이크를 켰을 때의 소리 하나뿐입니다.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 380" role="img" aria-label="Vercel 에서 dist 를 내려받은 브라우저 안에서 React 앱이 읽어 주기, localStorage, 음성 인식을 쓰고, 음성 인식만 기기 밖 서버로 소리를 보낸다">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+        <marker id="a1m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah mk"/></marker>
+      </defs>
+      <!-- 왼쪽: 배포·글꼴 -->
+      <rect class="box soft" x="20" y="50" width="220" height="64" rx="10"/>
+      <text class="t b" x="130" y="77" text-anchor="middle">Vercel 정적 호스팅</text>
+      <text class="t m" x="130" y="97" text-anchor="middle">npm run build → dist/</text>
+      <rect class="box soft" x="20" y="230" width="220" height="64" rx="10"/>
+      <text class="t b" x="130" y="257" text-anchor="middle">Google Fonts</text>
+      <text class="t s" x="130" y="277" text-anchor="middle">Jua · Noto Sans KR</text>
+      <line class="edge" x1="240" y1="82" x2="296" y2="82" marker-end="url(#a1)"/>
+      <text class="t s" x="268" y="72" text-anchor="middle">페이지</text>
+      <line class="edge" x1="240" y1="262" x2="296" y2="262" marker-end="url(#a1)"/>
+      <text class="t s" x="268" y="252" text-anchor="middle">글꼴</text>
+
+      <!-- 브라우저 -->
+      <rect class="frame" x="300" y="20" width="480" height="345" rx="16"/>
+      <text class="t s" x="316" y="42">아이·선생님 기기의 브라우저 (Chrome · Edge)</text>
+      <rect class="box hub" x="330" y="60" width="420" height="56" rx="10"/>
+      <text class="t b" x="540" y="84" text-anchor="middle">React 앱</text>
+      <text class="t m" x="540" y="103" text-anchor="middle">main.tsx → App.tsx · Teacher.tsx</text>
+
+      <rect class="box" x="330" y="190" width="110" height="80" rx="10"/>
+      <text class="t b" x="385" y="222" text-anchor="middle">읽어 주기</text>
+      <text class="t m" x="385" y="242" text-anchor="middle">speech</text>
+      <text class="t m" x="385" y="256" text-anchor="middle">Synthesis</text>
+
+      <rect class="box" x="460" y="190" width="160" height="150" rx="10"/>
+      <text class="t b" x="540" y="214" text-anchor="middle">localStorage</text>
+      <text class="t m acc" x="540" y="242" text-anchor="middle">kids-shop:v1</text>
+      <text class="t s" x="540" y="259" text-anchor="middle">가게 주제·마이크·목소리</text>
+      <text class="t m acc" x="540" y="294" text-anchor="middle">kids-shop:progress:v1</text>
+      <text class="t s" x="540" y="311" text-anchor="middle">끝낸 가게·찾은 보물</text>
+
+      <rect class="box" x="640" y="190" width="110" height="80" rx="10"/>
+      <text class="t b" x="695" y="222" text-anchor="middle">듣기</text>
+      <text class="t m" x="695" y="242" text-anchor="middle">Speech</text>
+      <text class="t m" x="695" y="256" text-anchor="middle">Recognition</text>
+
+      <line class="edge" x1="385" y1="116" x2="385" y2="188" marker-end="url(#a1)"/>
+      <text class="t s" x="392" y="156">문장 읽기</text>
+      <line class="edge" x1="540" y1="116" x2="540" y2="188" marker-end="url(#a1)"/>
+      <text class="t s" x="547" y="156">저장·불러오기</text>
+      <path class="edge" d="M695,188 L695,116" marker-end="url(#a1)"/>
+      <text class="t s" x="702" y="156">들린 글자</text>
+
+      <!-- 바깥 서버 -->
+      <rect class="box out" x="820" y="190" width="160" height="80" rx="10"/>
+      <text class="t b" x="900" y="222" text-anchor="middle">음성 인식 서버</text>
+      <text class="t s" x="900" y="242" text-anchor="middle">Google · Microsoft</text>
+      <line class="edge mk" x1="750" y1="230" x2="818" y2="230" marker-end="url(#a1m)"/>
+      <text class="t s mk" x="785" y="292" text-anchor="middle">마이크 소리</text>
+      <text class="t s mk" x="785" y="308" text-anchor="middle">(손님 놀이만)</text>
+
+      <rect class="box soft" x="820" y="40" width="160" height="110" rx="10"/>
+      <text class="t b" x="900" y="68" text-anchor="middle">없는 것</text>
+      <text class="t s" x="900" y="92" text-anchor="middle">우리 서버·DB 없음</text>
+      <text class="t s" x="900" y="110" text-anchor="middle">AI API 없음</text>
+      <text class="t s" x="900" y="128" text-anchor="middle">카메라 안 씀</text>
+    </svg>
+    </div>
+    <figcaption>노란 점선이 기기를 떠나는 유일한 데이터입니다. 선생님 페이지 "놀이 설정"에서 마이크를 끄면 이 선도 없어지고, 그때는 선생님이 "잘 말했어요"를 눌러 진행합니다.</figcaption>
+  </figure>
+</section>
+
+<!-- 2. 화면 흐름 -->
+<section>
+  <h2>2. 화면이 바뀌는 길</h2>
+  <p><code>App.tsx</code> 의 <code>screen</code> 상태 하나가 다섯 화면 중 무엇을 그릴지 정합니다. 라우터는 없습니다.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 900 340" role="img" aria-label="start 화면에서 play, done 으로 가고, done 에서 다시 play 나 start 로 돌아간다. start 에서 gate 덧셈을 맞히면 teacher 로 간다">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+        <marker id="a2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker>
+      </defs>
+      <!-- 아이 줄 -->
+      <text class="t lane" x="40" y="80">아이</text>
+      <rect class="box hub" x="40" y="90" width="180" height="64" rx="12"/>
+      <text class="t b" x="130" y="117" text-anchor="middle">마을 지도</text>
+      <text class="t m" x="130" y="137" text-anchor="middle">start · &lt;Start&gt;</text>
+      <rect class="box" x="360" y="90" width="180" height="64" rx="12"/>
+      <text class="t b" x="450" y="117" text-anchor="middle">놀이</text>
+      <text class="t m" x="450" y="137" text-anchor="middle">play · 손님 3~10명</text>
+      <rect class="box" x="680" y="90" width="180" height="64" rx="12"/>
+      <text class="t b" x="770" y="117" text-anchor="middle">한 판 끝 · 열쇠</text>
+      <text class="t m" x="770" y="137" text-anchor="middle">done · &lt;Done&gt;</text>
+
+      <line class="edge acc" x1="220" y1="110" x2="358" y2="110" marker-end="url(#a2a)"/>
+      <text class="t s acc" x="289" y="102" text-anchor="middle">놀이·나이 고르고 시작</text>
+      <line class="edge" x1="360" y1="138" x2="222" y2="138" marker-end="url(#a2)"/>
+      <text class="t s" x="291" y="156" text-anchor="middle">나가기 (LeaveAsk)</text>
+      <line class="edge acc" x1="540" y1="122" x2="678" y2="122" marker-end="url(#a2a)"/>
+      <text class="t s acc" x="609" y="114" text-anchor="middle">마지막 손님</text>
+      <path class="edge" d="M760,90 C760,58 460,58 460,88" marker-end="url(#a2)"/>
+      <text class="t s" x="610" y="56" text-anchor="middle">한 번 더</text>
+      <path class="edge" d="M800,90 C800,16 120,16 120,88" marker-end="url(#a2)"/>
+      <text class="t s" x="460" y="26" text-anchor="middle">마을로 · 다음 가게로 가기</text>
+
+      <!-- 선생님 줄 -->
+      <text class="t lane" x="200" y="240">선생님</text>
+      <rect class="box" x="200" y="250" width="180" height="64" rx="12"/>
+      <text class="t b" x="290" y="277" text-anchor="middle">덧셈 문 지키기</text>
+      <text class="t m" x="290" y="297" text-anchor="middle">gate · &lt;Gate&gt;</text>
+      <rect class="box" x="520" y="250" width="180" height="64" rx="12"/>
+      <text class="t b" x="610" y="277" text-anchor="middle">선생님 페이지</text>
+      <text class="t m" x="610" y="297" text-anchor="middle">teacher · Teacher.tsx</text>
+
+      <path class="edge" d="M110,154 L110,282 L198,282" marker-end="url(#a2)"/>
+      <text class="t s" x="118" y="214">선생님 설정</text>
+      <line class="edge" x1="380" y1="282" x2="518" y2="282" marker-end="url(#a2)"/>
+      <text class="t s" x="449" y="274" text-anchor="middle">덧셈 맞힘</text>
+      <path class="edge" d="M610,250 L610,200 L180,200 L180,156" marker-end="url(#a2)"/>
+      <text class="t s" x="400" y="192" text-anchor="middle">저장·닫기 / 아이 화면 미리보기</text>
+    </svg>
+    </div>
+    <figcaption>파란 선이 아이가 보통 지나가는 길입니다. "한 판 끝"에 들어갈 때 <code>withStamp</code> 로 열쇠와 보물을 먼저 저장하고, <code>nextShop</code> 으로 다음 가게를 엽니다. 덧셈 화면에서 취소하면 마을 지도로 돌아갑니다(그림에서는 생략).</figcaption>
+  </figure>
+</section>
+
+<!-- 3. 놀이 갈래 -->
+<section>
+  <h2>3. 가게 종류 × 역할 = 놀이 화면</h2>
+  <p>가게마다 <code>kind</code>(일반 가게·병원·키오스크)가 있고, 아이는 점원이나 손님 역할을 고릅니다. 둘을 곱한 여섯 칸이 각각 다른 컴포넌트입니다. 말하기 놀이 셋은 <code>TalkPlay</code> 하나를 같이 씁니다.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>가게 종류 (kind)</th><th>점원 · 듣고 고르기</th><th>손님 · 말하기</th><th>규칙 파일</th></tr></thead>
+      <tbody>
+        <tr><td><b>shop</b><br><span class="t-s" style="color:var(--muted);font-size:13px">슈퍼마켓·과일가게·빵집·문구점·분식집·꽃집·아이스크림·옷가게 (8곳)</span></td>
+          <td><code>ClerkPlay</code><br><span style="color:var(--muted);font-size:13px">주문 듣고 진열대에서 담기</span></td>
+          <td><code>CustomerPlay</code> → <code>TalkPlay</code><br><span style="color:var(--muted);font-size:13px">그림 보고 "…주세요"</span></td>
+          <td><span class="tag">game.ts</span></td></tr>
+        <tr><td><b>clinic</b><br><span style="color:var(--muted);font-size:13px">꼬마 병원</span></td>
+          <td><code>ClinicPlay</code><br><span style="color:var(--muted);font-size:13px">아픈 곳 듣고 도구 고르기</span></td>
+          <td><code>PatientPlay</code> → <code>TalkPlay</code><br><span style="color:var(--muted);font-size:13px">어디가 아픈지 말하기</span></td>
+          <td><span class="tag">clinic.ts</span></td></tr>
+        <tr><td><b>kiosk</b><br><span style="color:var(--muted);font-size:13px">꼬마 키오스크</span></td>
+          <td><code>KioskPlay</code><br><span style="color:var(--muted);font-size:13px">메뉴 누르고 먹고 가기/포장</span></td>
+          <td><code>CustomerPlay kiosk</code> → <code>TalkPlay</code></td>
+          <td><span class="tag">kiosk.ts</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>나이 단계는 <code>'1'</code>(처음 해요)·<code>'3'</code>·<code>'5'</code>·<code>'7'</code> 네 칸입니다. 한 손님에게 두 번 넘게 막히면 <code>easier()</code> 로 다음 손님을 한 단계 낮추고, 한 번에 맞히면 <code>harder()</code> 로 아이가 고른 단계까지 되돌립니다.</p>
+</section>
+
+<!-- 4. 한 판의 데이터 -->
+<section>
+  <h2>4. 손님 한 명이 지나가는 동안의 데이터</h2>
+  <p>두 놀이는 주문을 만드는 곳과 판정 결과(<code>Verdict</code>)를 쓰는 곳이 같고, 가운데 입력만 다릅니다. 점원 놀이는 손가락, 손님 놀이는 목소리입니다.</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 270" role="img" aria-label="점원 놀이는 makeOrder, say, 진열대 누르기, judge, Verdict 순서이고 손님 놀이는 makeOrder, 마이크, judgeSpoken, nearest 발음 비교, Verdict 순서다">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+      </defs>
+      <text class="t lane" x="20" y="30">점원 놀이 · 듣고 고르기</text>
+      <rect class="box hub" x="20" y="44" width="130" height="68" rx="10"/><text class="t b" x="85" y="72" text-anchor="middle">주문 만들기</text><text class="t m" x="85" y="92" text-anchor="middle">makeOrder()</text>
+      <rect class="box" x="176" y="44" width="130" height="68" rx="10"/><text class="t b" x="241" y="72" text-anchor="middle">손님이 말함</text><text class="t m" x="241" y="92" text-anchor="middle">say(orderText)</text>
+      <rect class="box" x="332" y="44" width="130" height="68" rx="10"/><text class="t b" x="397" y="72" text-anchor="middle">진열대 누르기</text><text class="t m" x="397" y="92" text-anchor="middle">Shelf → Tray</text>
+      <rect class="box" x="488" y="44" width="130" height="68" rx="10"/><text class="t b" x="553" y="72" text-anchor="middle">건네기 판정</text><text class="t m" x="553" y="92" text-anchor="middle">judge()</text>
+      <rect class="box hub" x="644" y="44" width="130" height="68" rx="10"/><text class="t b" x="709" y="72" text-anchor="middle">결과</text><text class="t m" x="709" y="92" text-anchor="middle">Verdict</text>
+      <rect class="box soft" x="800" y="44" width="140" height="68" rx="10"/><text class="t b" x="870" y="72" text-anchor="middle">축하 / 같이 세기</text><text class="t m" x="870" y="92" text-anchor="middle">Celebrate · sayCount</text>
+      <line class="edge" x1="150" y1="78" x2="174" y2="78" marker-end="url(#a3)"/>
+      <line class="edge" x1="306" y1="78" x2="330" y2="78" marker-end="url(#a3)"/>
+      <line class="edge" x1="462" y1="78" x2="486" y2="78" marker-end="url(#a3)"/>
+      <line class="edge" x1="618" y1="78" x2="642" y2="78" marker-end="url(#a3)"/>
+      <line class="edge" x1="774" y1="78" x2="798" y2="78" marker-end="url(#a3)"/>
+
+      <text class="t lane" x="20" y="170">손님 놀이 · 말하기</text>
+      <rect class="box hub" x="20" y="184" width="130" height="68" rx="10"/><text class="t b" x="85" y="212" text-anchor="middle">주문 그림</text><text class="t m" x="85" y="232" text-anchor="middle">makeOrder()</text>
+      <rect class="box" x="176" y="184" width="130" height="68" rx="10"/><text class="t b" x="241" y="212" text-anchor="middle">마이크 듣기</text><text class="t m" x="241" y="232" text-anchor="middle">browserRecognizer</text>
+      <rect class="box" x="332" y="184" width="130" height="68" rx="10"/><text class="t b" x="397" y="212" text-anchor="middle">말 판정</text><text class="t m" x="397" y="232" text-anchor="middle">judgeSpoken()</text>
+      <rect class="box out" x="488" y="184" width="130" height="68" rx="10"/><text class="t b" x="553" y="212" text-anchor="middle">발음 너그럽게</text><text class="t m" x="553" y="232" text-anchor="middle">sound.nearest()</text>
+      <rect class="box hub" x="644" y="184" width="130" height="68" rx="10"/><text class="t b" x="709" y="212" text-anchor="middle">결과</text><text class="t m" x="709" y="232" text-anchor="middle">Verdict</text>
+      <rect class="box soft" x="800" y="184" width="140" height="68" rx="10"/><text class="t b" x="870" y="212" text-anchor="middle">본보기 들려주기</text><text class="t s" x="870" y="232" text-anchor="middle">두 번 막히면</text>
+      <line class="edge" x1="150" y1="218" x2="174" y2="218" marker-end="url(#a3)"/>
+      <line class="edge" x1="306" y1="218" x2="330" y2="218" marker-end="url(#a3)"/>
+      <line class="edge" x1="462" y1="218" x2="486" y2="218" marker-end="url(#a3)"/>
+      <line class="edge" x1="618" y1="218" x2="642" y2="218" marker-end="url(#a3)"/>
+      <line class="edge" x1="774" y1="218" x2="798" y2="218" marker-end="url(#a3)"/>
+    </svg>
+    </div>
+    <figcaption>노란 칸 <code>sound.ts</code> 는 들린 글자를 소리 단위로 바꿔 "다과"를 "사과"로, "빠나나"를 "바나나"로 받아 줍니다. 화면에 나온 정답 물건 이름에만 쓰고, 한 글자 낱말에는 쓰지 않습니다.</figcaption>
+  </figure>
+</section>
+
+<!-- 5. 모듈 의존 -->
+<section>
+  <h2>5. 코드 모듈이 서로 부르는 관계</h2>
+  <p>화살표는 <code>import</code> 방향입니다. 맨 아래 <code>game.ts</code> 와 <code>sound.ts</code> 는 React 를 모르는 순수 함수라서 화면 없이 테스트됩니다.</p>
+  <figure>
+    <div class="scroll">
+<pre class="mermaid">
+flowchart TB
+  subgraph UI["화면 · React (.tsx)"]
+    main["main.tsx"] --> App["App.tsx · 1053줄"]
+    App --> Teacher["Teacher.tsx · 404줄"]
+    App --> Art["Art.tsx · 그림"]
+    Teacher --> Art
+  end
+  subgraph RULE["놀이 규칙 · 저장"]
+    clinic["clinic.ts · 병원"]
+    kiosk["kiosk.ts · 키오스크"]
+    progress["progress.ts · 열쇠·보물"]
+    shop["shop.ts · 저장·검사·붙여넣기"]
+  end
+  subgraph BASE["바탕"]
+    themes["themes.ts · 기본 가게 10곳"]
+    game["game.ts · 주문·판정·나이"]
+    speech["speech.ts · 읽기·듣기"]
+    sound["sound.ts · 발음 비교"]
+  end
+  App --> clinic & kiosk & progress & shop & game & speech
+  Teacher --> shop & themes & game & speech
+  shop --> Art & clinic & game & speech & themes
+  clinic --> game & sound
+  kiosk --> game
+  progress --> game
+  themes --> game
+  game --> sound
+  classDef hub fill:#E3ECFC,stroke:#2F6FDB,stroke-width:2px,color:#1F2D2B
+  class game,App hub
+</pre>
+    </div>
+    <figcaption>파랗게 칠한 두 곳이 중심입니다. <code>App.tsx</code> 는 모든 놀이 화면을 한 파일에 담고 있어 가장 크고, <code>game.ts</code> 는 거의 모든 모듈이 기대는 타입(<code>Shop</code>, <code>Item</code>, <code>Order</code>, <code>Verdict</code>)과 규칙의 출발점입니다.</figcaption>
+  </figure>
+</section>
+
+<!-- 6. 파일 목록 -->
+<section>
+  <h2>6. 파일별 역할과 크기</h2>
+  <p>줄 수는 <code>wc -l</code> 로 센 값입니다. 막대는 가장 큰 파일(App.tsx 1053줄)을 기준으로 한 길이입니다.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>파일</th><th>맡은 일</th><th>테스트</th><th style="text-align:right">줄</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/App.tsx</code></td><td>화면 전환, 마을 지도(Start), 놀이 6종, 한 판 끝(Done), 열쇠·보물상자, 덧셈 문</td><td><span class="tag">App.test.tsx</span> <span class="tag">count.test.ts</span></td><td class="n">1053<span class="bar" style="width:80px"></span></td></tr>
+        <tr><td><code>src/Teacher.tsx</code></td><td>선생님 페이지: 주제·통로·물건 편집, 표 붙여넣기, 내보내기·불러오기, 목소리</td><td><span class="tag">Teacher.test.tsx</span></td><td class="n">404<span class="bar" style="width:31px"></span></td></tr>
+        <tr><td><code>src/game.ts</code></td><td>타입, 기본 슈퍼마켓, 나이 단계, 주문 만들기, 조사 붙이기, <code>judge</code>·<code>judgeSpoken</code></td><td><span class="tag">game.test.ts</span></td><td class="n">290<span class="bar" style="width:22px"></span></td></tr>
+        <tr><td><code>src/speech.ts</code></td><td>한국어 목소리 고르기, <code>say</code>·<code>sayCount</code>, 음성 인식(침묵 1.8초·최대 15초)</td><td><span class="tag">speech.test.ts</span> <span class="tag">voice.test.ts</span></td><td class="n">223<span class="bar" style="width:17px"></span></td></tr>
+        <tr><td><code>src/shop.ts</code></td><td>localStorage 저장·불러오기, 들어온 값 정리, 검사(물건 40개·통로 3개), 붙여넣기 해석</td><td><span class="tag">shop.test.ts</span></td><td class="n">207<span class="bar" style="width:16px"></span></td></tr>
+        <tr><td><code>src/themes.ts</code></td><td>기본 가게 10곳(<code>BUILTIN</code>), 이름으로 그림 찾기</td><td><span class="tag">themes.test.ts</span></td><td class="n">146<span class="bar" style="width:11px"></span></td></tr>
+        <tr><td><code>src/clinic.ts</code></td><td>증상·도구, 진료 만들기, <code>judgeCare</code>·<code>judgeComplaint</code></td><td><span class="tag">clinic.test.ts</span></td><td class="n">122<span class="bar" style="width:9px"></span></td></tr>
+        <tr><td><code>src/sound.ts</code></td><td>아이 발음 묶기, 가장 가까운 낱말 찾기(<code>nearest</code>)</td><td><span class="tag">sound.test.ts</span></td><td class="n">76<span class="bar" style="width:6px"></span></td></tr>
+        <tr><td><code>src/Art.tsx</code></td><td>직접 그린 물건·동물 그림, 이모지·사진 구분</td><td><span class="tag g">간접</span></td><td class="n">70<span class="bar" style="width:5px"></span></td></tr>
+        <tr><td><code>src/progress.ts</code></td><td>열쇠(끝낸 가게)·보물 저장, 가게 열림 순서, 다음 가게</td><td><span class="tag">progress.test.ts</span></td><td class="n">62<span class="bar" style="width:5px"></span></td></tr>
+        <tr><td><code>src/kiosk.ts</code></td><td>키오스크 주문, 먹고 가기/포장, 주문 번호</td><td><span class="tag g">clinic.test.ts 안</span></td><td class="n">30<span class="bar" style="width:2px"></span></td></tr>
+        <tr><td><code>src/styles.css</code></td><td>전체 화면 스타일</td><td>–</td><td class="n">462<span class="bar" style="width:35px"></span></td></tr>
+        <tr><td><code>src/main.tsx</code></td><td>React 시작점</td><td>–</td><td class="n">6</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <div class="note"><h3>빌드와 테스트</h3><p><code>npm run build</code> 는 <code>tsc --noEmit</code> 으로 타입을 먼저 검사하고 Vite 로 <code>dist/</code> 를 만듭니다. <code>npm test</code> 는 Vitest 가 jsdom 환경에서 테스트 파일 11개를 돌립니다(이 페이지를 만들며 실행하지는 않았습니다).</p></div>
+    <div class="note"><h3>설정 파일</h3><p><code>vite.config.ts</code> 하나에 React 플러그인과 테스트 설정(<code>setupTests.ts</code>)이 같이 있습니다. 런타임 의존성은 <code>react</code>·<code>react-dom</code> 둘뿐입니다.</p></div>
+  </div>
+</section>
+
+<footer>소스: <span class="mono">src/*.ts(x)</span> 의 import 문, <span class="mono">README.md</span>, <span class="mono">package.json</span>, <span class="mono">vite.config.ts</span> (커밋 07d414f 기준).</footer>
+</div>
